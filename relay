@@ -1,0 +1,366 @@
+#!/usr/bin/env bash
+#
+# relay: helper for the Relay Redesign activity.
+#
+#   ./relay setup P N   save your number (P) and how many people are playing (N)
+#   ./relay start       go to your screen for the current round
+#   ./relay next        save + send your work, then move to your next screen
+#   ./relay status      show your round, screen and focus
+#   ./relay table N     print the rotation table for N people
+#   ./relay round R     jump to round R (only if you got out of sync)
+#
+# Works with the bash that ships on macOS (3.2) and on Linux.
+
+set -u
+
+ROUNDS=4
+MAX_SCREENS=20
+REMOTE=origin
+HANDOFF_WAIT=${RELAY_WAIT:-60}
+
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+cd "$ROOT" || exit 1
+STATE_FILE="$ROOT/.relay-me"
+LOG_FILE="$(mktemp 2>/dev/null || echo "/tmp/relay-$$.log")"
+trap 'rm -f "$LOG_FILE"' EXIT
+
+if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
+  BOLD=$'\033[1m'; DIM=$'\033[2m'; RESET=$'\033[0m'
+  GREEN=$'\033[32m'; YELLOW=$'\033[33m'; RED=$'\033[31m'; CYAN=$'\033[36m'
+else
+  BOLD=""; DIM=""; RESET=""; GREEN=""; YELLOW=""; RED=""; CYAN=""
+fi
+
+say()  { printf '%s\n' "$*"; }
+ok()   { printf '%s✔ %s%s\n' "$GREEN" "$*" "$RESET"; }
+note() { printf '%s➜ %s%s\n' "$CYAN" "$*" "$RESET"; }
+warn() { printf '%s! %s%s\n' "$YELLOW" "$*" "$RESET"; }
+fail() { printf '%s✖ %s%s\n' "$RED" "$*" "$RESET" >&2; exit 1; }
+
+is_number() { case "$1" in ''|*[!0-9]*) return 1 ;; *) return 0 ;; esac; }
+
+focus_name() {
+  case "$1" in
+    1) echo "HIERARCHY" ;;
+    2) echo "SPACING AND TYPE" ;;
+    3) echo "COLOR AND POLISH" ;;
+    4) echo "FEEL" ;;
+    *) echo "?" ;;
+  esac
+}
+
+focus_tip() {
+  case "$1" in
+    1) echo "What should the eye land on first? Make the key info and the main action obvious." ;;
+    2) echo "Pick a spacing scale (like 4/8/16/24) and a few text styles, then use them everywhere." ;;
+    3) echo "Fewer colors, readable contrast, calmer surfaces. Drop borders and shadows that aren't doing a job." ;;
+    4) echo "Press states, haptics, motion, loading and empty states. Make every tap feel good." ;;
+  esac
+}
+
+screen_for() {
+  local p=$1 r=$2 n=$3
+  echo $(( ( ( (p - r) % n + n ) % n ) + 1 ))
+}
+
+load_state() {
+  [ -f "$STATE_FILE" ] || fail "You haven't set up yet. Run:  ./relay setup <your number> <total people>"
+  PERSON=$(sed -n 's/^PERSON=//p' "$STATE_FILE")
+  TOTAL=$(sed -n 's/^TOTAL=//p' "$STATE_FILE")
+  ROUND=$(sed -n 's/^ROUND=//p' "$STATE_FILE")
+  if ! is_number "$PERSON" || ! is_number "$TOTAL" || ! is_number "$ROUND"; then
+    fail "Your .relay-me file looks broken. Run ./relay setup <your number> <total people> again."
+  fi
+  SCREEN=$(screen_for "$PERSON" "$ROUND" "$TOTAL")
+  FILE="app/screens/screen-$SCREEN.tsx"
+  BRANCH="screen-$SCREEN"
+}
+
+save_state() {
+  printf 'PERSON=%s\nTOTAL=%s\nROUND=%s\n' "$PERSON" "$TOTAL" "$ROUND" > "$STATE_FILE"
+}
+
+banner() {
+  local focus line
+  focus=$(focus_name "$ROUND")
+  line="━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  say ""
+  say "${BOLD}${CYAN}${line}${RESET}"
+  say "${BOLD}  ROUND $ROUND · YOU ARE ON SCREEN $SCREEN · FOCUS IS $focus${RESET}"
+  say "${BOLD}  ONLY EDIT $FILE${RESET}"
+  say "${BOLD}${CYAN}${line}${RESET}"
+  say "  $(focus_tip "$ROUND")"
+  say "  ${DIM}In the app, tap Screen $SCREEN.${RESET}"
+  say "  ${DIM}When time is up: take a screenshot on your phone, then run ./relay next${RESET}"
+  say ""
+}
+
+done_message() {
+  say ""
+  say "${BOLD}${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+  say "${BOLD}  ALL $ROUNDS ROUNDS DONE · THANK YOU! 🎉${RESET}"
+  say "${BOLD}${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+  say "  Your work is saved. Go look at where your first screen ended up!"
+  say ""
+}
+
+require_git_repo() {
+  git rev-parse --is-inside-work-tree >/dev/null 2>&1 || fail "This folder isn't the relay-redesign project. cd into it and try again."
+  git remote get-url "$REMOTE" >/dev/null 2>&1 || fail "This copy isn't connected to GitHub (no '$REMOTE'). Clone the repo with the command in the README."
+}
+
+current_branch() { git rev-parse --abbrev-ref HEAD 2>/dev/null; }
+
+# Every changed or new file except the given one, one per line.
+other_changes() {
+  local keep=$1
+  git status --porcelain --untracked-files=all 2>/dev/null \
+    | sed -e 's/^...//' -e 's/.* -> //' -e 's/^"//' -e 's/"$//' \
+    | grep -v -x -F "$keep" | grep -v -x -F ".relay-me" || true
+}
+
+# Check out a fresh copy of the target branch. Leftover edits to other files are
+# kept if git allows it, otherwise they are set aside (stashed) so we can switch.
+switch_to_branch() {
+  local branch=$1
+  note "Getting the latest version of $branch..."
+  if ! git fetch -q "$REMOTE" "$branch" >"$LOG_FILE" 2>&1; then
+    if git rev-parse --verify -q "refs/remotes/$REMOTE/$branch" >/dev/null; then
+      warn "Couldn't reach GitHub, so you might not have your teammate's latest changes."
+      warn "Check your internet and run ./relay start to try again."
+    else
+      say ""; cat "$LOG_FILE" >&2
+      fail "Couldn't download $branch. Check your internet, then run ./relay start"
+    fi
+  fi
+
+  if git checkout -q -B "$branch" "$REMOTE/$branch" >"$LOG_FILE" 2>&1; then
+    return 0
+  fi
+
+  local leftovers
+  leftovers=$(git status --porcelain --untracked-files=all | sed 's/^...//')
+  warn "Your other changed files were in the way of switching to $branch:"
+  printf '%s\n' "$leftovers" | sed 's/^/      /'
+  warn "Putting them aside so you can move on (saved as 'relay leftovers round $ROUND')."
+  git stash push -q -u -m "relay leftovers round $ROUND person $PERSON" >/dev/null 2>&1 || true
+  if ! git checkout -q -B "$branch" "$REMOTE/$branch" >"$LOG_FILE" 2>&1; then
+    say ""; cat "$LOG_FILE" >&2
+    fail "Couldn't switch to $branch. Ask your instructor for help (your work so far is safe)."
+  fi
+}
+
+commit_screen() {
+  local msg=$1; shift
+  if [ -z "$(git config user.name 2>/dev/null)" ] || [ -z "$(git config user.email 2>/dev/null)" ]; then
+    git -c user.name="Relay Person $PERSON" -c user.email="person-$PERSON@relay.local" \
+        -c commit.gpgsign=false commit -q "$@" -m "$msg" >"$LOG_FILE" 2>&1
+  else
+    git -c commit.gpgsign=false commit -q "$@" -m "$msg" >"$LOG_FILE" 2>&1
+  fi
+}
+
+# Everyone runs ./relay next at about the same time, so the person who had this
+# screen last round may not have sent it yet. Wait (a little) for their commit.
+wait_for_handoff() {
+  [ "$ROUND" -gt 1 ] || return 0
+  local prev_person=$(( ( (PERSON - 2) % TOTAL + TOTAL ) % TOTAL + 1 ))
+  [ "$prev_person" -ne "$PERSON" ] || return 0
+  local subject="round $((ROUND - 1)) · person $prev_person · screen $SCREEN"
+  local waited=0
+  while :; do
+    git fetch -q "$REMOTE" "$BRANCH" >/dev/null 2>&1
+    if git log "$REMOTE/$BRANCH" --format=%s -n 30 2>/dev/null | grep -qxF "$subject"; then
+      [ "$waited" -eq 0 ] || ok "Got it! Person $prev_person's changes are in."
+      return 0
+    fi
+    if [ "$waited" -ge "$HANDOFF_WAIT" ]; then
+      warn "Person $prev_person hasn't sent screen $SCREEN yet, so you're starting from the latest version."
+      warn "(If they send it later, you can run ./relay start to grab it, but only before you change anything.)"
+      return 0
+    fi
+    [ "$waited" -gt 0 ] || note "Waiting for person $prev_person to send screen $SCREEN (up to $HANDOFF_WAIT seconds)..."
+    sleep 3
+    waited=$((waited + 3))
+  done
+}
+
+cmd_setup() {
+  local p=${1:-} n=${2:-}
+  if [ -z "$p" ] || [ -z "$n" ]; then
+    fail "Usage: ./relay setup <your number> <total people>   (example: ./relay setup 3 10)"
+  fi
+  is_number "$p" || fail "Your number should be a whole number, like 3. You typed: $p"
+  is_number "$n" || fail "The total should be a whole number, like 10. You typed: $n"
+  p=$((10#$p)); n=$((10#$n))
+  [ "$n" -ge 1 ] && [ "$n" -le "$MAX_SCREENS" ] || fail "The total has to be between 1 and $MAX_SCREENS (there are $MAX_SCREENS screens)."
+  [ "$p" -ge 1 ] && [ "$p" -le "$n" ] || fail "Your number has to be between 1 and $n. Double check the number you were given."
+  PERSON=$p; TOTAL=$n; ROUND=1
+  save_state
+  ok "You're person $PERSON of $TOTAL. Round set to 1."
+  say "  Next, run:  ${BOLD}./relay start${RESET}"
+}
+
+cmd_start() {
+  load_state
+  if [ "$ROUND" -gt "$ROUNDS" ]; then done_message; return 0; fi
+  require_git_repo
+  local others
+  others=$(other_changes "$FILE")
+  if [ -n "$others" ] && [ "$(current_branch)" != "$BRANCH" ]; then
+    warn "You have changes in files that aren't part of this round:"
+    printf '%s\n' "$others" | sed 's/^/      /'
+    warn "They won't be saved by the relay. Only $FILE counts."
+  fi
+  wait_for_handoff
+  switch_to_branch "$BRANCH"
+  ok "You're on screen $SCREEN."
+  banner
+}
+
+cmd_next() {
+  load_state
+  if [ "$ROUND" -gt "$ROUNDS" ]; then done_message; return 0; fi
+  require_git_repo
+
+  if [ "$(current_branch)" != "$BRANCH" ]; then
+    warn "You weren't on screen $SCREEN's branch. Moving your changes there first..."
+    git checkout -q "$BRANCH" >"$LOG_FILE" 2>&1 || {
+      cat "$LOG_FILE" >&2
+      fail "Couldn't get onto $BRANCH. Ask your instructor for help (nothing was lost)."
+    }
+  fi
+
+  local others
+  others=$(other_changes "$FILE")
+  if [ -n "$others" ]; then
+    warn "These files were changed but aren't your screen, so they WON'T be saved:"
+    printf '%s\n' "$others" | sed 's/^/      /'
+    warn "Only $FILE is sent. (Tip: tell Claude to keep everything in that one file.)"
+  fi
+
+  git reset -q 2>/dev/null
+  git add -- "$FILE" 2>/dev/null
+  local msg="round $ROUND · person $PERSON · screen $SCREEN"
+  local empty=""
+  if git diff --cached --quiet -- "$FILE"; then
+    note "No changes to screen $SCREEN this round. That's okay!"
+    empty="--allow-empty"
+  fi
+  if ! commit_screen "$msg" $empty; then
+    cat "$LOG_FILE" >&2
+    fail "Couldn't save your work. Ask your instructor for help (your edits are still in the file)."
+  fi
+  [ -n "$empty" ] || ok "Saved your work on screen $SCREEN."
+  note "Sending it to GitHub..."
+  if git push -q "$REMOTE" "HEAD:refs/heads/$BRANCH" >"$LOG_FILE" 2>&1; then
+    ok "Sent! The next person will pick up from here."
+  else
+    if [ -n "$empty" ]; then
+      git reset -q --soft "HEAD~1" 2>/dev/null
+      note "Nothing to send for screen $SCREEN, moving on."
+    else
+      local backup="$BRANCH-late-p$PERSON"
+      git branch -f "$backup" HEAD >/dev/null 2>&1
+      if git push -q "$REMOTE" "HEAD:refs/heads/$backup" >"$LOG_FILE" 2>&1 \
+         || git push -q "$REMOTE" "HEAD:refs/heads/$backup-r$ROUND" >"$LOG_FILE" 2>&1; then
+        warn "Someone else already sent a newer version of screen $SCREEN (probably a timing thing)."
+        warn "No problem: your work is safely saved on its own branch: $backup"
+        warn "Let your instructor know if you want it merged in."
+      else
+        warn "Couldn't reach GitHub to send your work."
+        warn "It's still saved on this laptop in a branch called $backup. Tell your instructor."
+        say "  ${DIM}$(tail -n 3 "$LOG_FILE")${RESET}"
+      fi
+    fi
+  fi
+
+  ROUND=$((ROUND + 1))
+  save_state
+  if [ "$ROUND" -gt "$ROUNDS" ]; then
+    done_message
+    return 0
+  fi
+  SCREEN=$(screen_for "$PERSON" "$ROUND" "$TOTAL")
+  FILE="app/screens/screen-$SCREEN.tsx"
+  BRANCH="screen-$SCREEN"
+  wait_for_handoff
+  switch_to_branch "$BRANCH"
+  ok "Moved to screen $SCREEN."
+  banner
+}
+
+cmd_status() {
+  load_state
+  if [ "$ROUND" -gt "$ROUNDS" ]; then
+    say "Person $PERSON of $TOTAL · all $ROUNDS rounds done."
+    return 0
+  fi
+  say ""
+  say "  ${BOLD}Person${RESET}  $PERSON of $TOTAL"
+  say "  ${BOLD}Round${RESET}   $ROUND of $ROUNDS"
+  say "  ${BOLD}Screen${RESET}  $SCREEN  ($FILE)"
+  say "  ${BOLD}Focus${RESET}   $(focus_name "$ROUND") · $(focus_tip "$ROUND")"
+  local cur
+  cur=$(current_branch)
+  if [ -n "$cur" ] && [ "$cur" != "$BRANCH" ]; then
+    warn "You're currently on '$cur', not '$BRANCH'. Run ./relay start to fix that."
+  elif ! git diff --quiet -- "$FILE" 2>/dev/null; then
+    say "  ${DIM}You have unsaved changes on this screen. They're sent when you run ./relay next.${RESET}"
+  fi
+  say ""
+}
+
+cmd_table() {
+  local n=${1:-}
+  [ -n "$n" ] || fail "Usage: ./relay table <total people>   (example: ./relay table 10)"
+  is_number "$n" || fail "The total should be a whole number, like 10. You typed: $n"
+  n=$((10#$n))
+  [ "$n" -ge 1 ] && [ "$n" -le "$MAX_SCREENS" ] || fail "The total has to be between 1 and $MAX_SCREENS."
+  local p r
+  say "Relay rotation for $n people (screens 1-$n)"
+  printf '%-8s' "Person"
+  for r in $(seq 1 "$ROUNDS"); do printf ' | %-9s' "Round $r"; done
+  printf '\n%-8s' "Focus"
+  printf ' | %-9s | %-9s | %-9s | %-9s\n' "Hierarchy" "Spacing" "Color" "Feel"
+  printf -- '---------'
+  for r in $(seq 1 "$ROUNDS"); do printf -- '+-----------'; done
+  printf '\n'
+  for p in $(seq 1 "$n"); do
+    printf '%-8s' "$p"
+    for r in $(seq 1 "$ROUNDS"); do printf ' | %-9s' "screen $(screen_for "$p" "$r" "$n")"; done
+    printf '\n'
+  done
+}
+
+cmd_round() {
+  load_state
+  local r=${1:-}
+  is_number "$r" && [ "$r" -ge 1 ] && [ "$r" -le "$ROUNDS" ] || fail "Usage: ./relay round <1-$ROUNDS>"
+  ROUND=$((10#$r))
+  save_state
+  ok "Round set to $ROUND. Now run ./relay start"
+}
+
+cmd_help() {
+  say ""
+  say "${BOLD}Relay Redesign${RESET}"
+  say "  ./relay setup P N   save your number P and the total number of people N"
+  say "  ./relay start       go to your screen for this round"
+  say "  ./relay next        save + send your screen, then move to the next one"
+  say "  ./relay status      show your round, screen and focus"
+  say "  ./relay table N     print the full rotation for N people"
+  say "  ./relay round R     jump to round R (only if you got out of sync)"
+  say ""
+}
+
+case "${1:-help}" in
+  setup)  shift; cmd_setup "$@" ;;
+  start)  cmd_start ;;
+  next)   cmd_next ;;
+  status) cmd_status ;;
+  table)  shift; cmd_table "$@" ;;
+  round)  shift; cmd_round "$@" ;;
+  help|-h|--help) cmd_help ;;
+  *) warn "I don't know the command '$1'."; cmd_help; exit 1 ;;
+esac
