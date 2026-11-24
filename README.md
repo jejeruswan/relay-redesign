@@ -1,11 +1,11 @@
 # Relay Redesign 🏃‍♀️📱
 
-20 everyday Berkeley apps, each a little clunky. In 4 quick rounds you'll pass screens around the room and make them better with Claude Code.
+14 everyday Berkeley apps, each a little clunky. In 4 quick rounds you'll pass screens around the room and make them better with Claude Code.
 
 ## Setup (before class)
 
 ```bash
-git clone <repo url> && cd relay-redesign && npm install && chmod +x relay
+git clone https://github.com/jejeruswan/relay-redesign.git && cd relay-redesign && npm install && chmod +x relay
 ```
 
 Then start the app and open it in **Expo Go** on your phone (scan the QR code). This project uses **Expo SDK 58**, so update Expo Go from the App Store or Play Store first.
@@ -45,4 +45,4 @@ Lost? `./relay status` shows where you are.
 
 ## The one rule
 
-**Only edit your own screen file**, `app/screens/screen-N.tsx` for the screen in your banner. Don't touch other screens, `package.json`, or the `relay` script, and don't install packages. That's how 20 people work at once with zero merge conflicts.
+**Only edit your own screen file**, `app/screens/screen-N.tsx` for the screen in your banner. Don't touch other screens, `package.json`, or the `relay` script, and don't install packages. That's how everyone works at once with zero merge conflicts.
