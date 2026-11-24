@@ -77,8 +77,8 @@ const styles = StyleSheet.create({
     gap: 14,
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#E5E5EA',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#D1D1D6',
   },
   cardPressed: {
     backgroundColor: '#F2F2F7',
@@ -96,5 +96,5 @@ const styles = StyleSheet.create({
   badgeText: { color: '#1C1C1E', fontSize: 15, fontWeight: '600' },
   text: { flex: 1 },
   title: { fontSize: 17, fontWeight: '500', color: '#1C1C1E' },
-  subtitle: { marginTop: 2, fontSize: 14, color: '#8E8E93' },
+  subtitle: { marginTop: 5, fontSize: 14, color: '#8E8E93' },
 });
