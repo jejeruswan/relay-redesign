@@ -65,8 +65,8 @@ const styles = StyleSheet.create({
   list: { flex: 1, backgroundColor: '#FFFFFF' },
   content: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 48 },
   header: { marginBottom: 20 },
-  heading: { fontSize: 20, fontWeight: '600', color: '#1C1C1E' },
-  hint: { marginTop: 4, fontSize: 14, color: '#8E8E93' },
+  heading: { fontSize: 28, fontWeight: '600', color: '#1C1C1E', letterSpacing: 0.2 },
+  hint: { marginTop: 4, fontSize: 15, color: '#8E8E93' },
   separator: { height: 10 },
   card: {
     flexDirection: 'row',
@@ -95,6 +95,6 @@ const styles = StyleSheet.create({
   },
   badgeText: { color: '#1C1C1E', fontSize: 15, fontWeight: '600' },
   text: { flex: 1 },
-  title: { fontSize: 17, fontWeight: '500', color: '#1C1C1E' },
+  title: { fontSize: 16, fontWeight: '400', color: '#3A3A3C' },
   subtitle: { marginTop: 5, fontSize: 14, color: '#8E8E93' },
 });
