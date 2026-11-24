@@ -15,8 +15,6 @@ const SCREENS = [
   { title: 'Health Appointment', subtitle: 'Book a visit at the health center' },
   { title: 'Print Queue', subtitle: 'Release your print jobs' },
   { title: 'Scooter Unlock', subtitle: 'Nearby scooters and e-bikes' },
-  { title: 'Club Event RSVP', subtitle: 'Going, maybe, or can’t go' },
-  { title: 'Night Safety Walk', subtitle: 'Request a walk home' },
 ];
 
 export default function Home() {
@@ -55,7 +53,7 @@ export default function Home() {
                   {item.subtitle}
                 </Text>
               </View>
-              <Ionicons name="chevron-forward" size={20} color="#8E8E93" />
+              <Ionicons name="chevron-forward" size={18} color="#C7C7CC" />
             </Pressable>
         );
       }}
@@ -64,39 +62,39 @@ export default function Home() {
 }
 
 const styles = StyleSheet.create({
-  list: { flex: 1, backgroundColor: '#F2F2F7' },
-  content: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 48 },
-  header: { marginBottom: 16 },
-  heading: { fontSize: 28, fontWeight: '700', color: '#111111' },
-  hint: { marginTop: 4, fontSize: 15, color: '#5C5C63' },
-  separator: { height: 12 },
+  list: { flex: 1, backgroundColor: '#FFFFFF' },
+  content: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 48 },
+  header: { marginBottom: 20 },
+  heading: { fontSize: 28, fontWeight: '600', color: '#1C1C1E', letterSpacing: 0.2 },
+  hint: { marginTop: 4, fontSize: 15, color: '#8E8E93' },
+  separator: { height: 10 },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    minHeight: 72,
+    minHeight: 68,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    gap: 16,
+    gap: 14,
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: '#D1D1D6',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E5E5EA',
   },
   cardPressed: {
-    backgroundColor: '#E8F0FE',
-    borderColor: '#1A73E8',
+    backgroundColor: '#F2F2F7',
+    borderColor: '#D1D1D6',
     transform: [{ scale: 0.98 }],
   },
   badge: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#111111',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F2F2F7',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  badgeText: { color: '#FFFFFF', fontSize: 17, fontWeight: '700' },
+  badgeText: { color: '#1C1C1E', fontSize: 15, fontWeight: '600' },
   text: { flex: 1 },
-  title: { fontSize: 17, fontWeight: '600', color: '#111111' },
-  subtitle: { marginTop: 2, fontSize: 14, color: '#5C5C63' },
+  title: { fontSize: 17, fontWeight: '500', color: '#1C1C1E' },
+  subtitle: { marginTop: 2, fontSize: 14, color: '#8E8E93' },
 });
