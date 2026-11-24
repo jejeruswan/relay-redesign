@@ -11,6 +11,9 @@ export default function RootLayout() {
           return {
             title: match ? `Screen ${match[1]}` : 'Relay Redesign',
             headerBackTitle: 'All screens',
+            headerTransparent: false,
+            headerStyle: { backgroundColor: '#FFFFFF' },
+            headerShadowVisible: true,
           };
         }}
       />
