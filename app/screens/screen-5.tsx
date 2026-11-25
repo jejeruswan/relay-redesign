@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 
 type HourBar = { label: string; value: number };
 
@@ -8,13 +9,14 @@ type Area = {
   id: string;
   name: string;
   icon: keyof typeof Ionicons.glyphMap;
-  iconSize: number;
   busy: number;
   capacity: number;
   hours: string;
 };
 
 const OPEN_HOURS = 'Open today 6:00 AM – 11:00 PM';
+const FIRST_HOUR = 6; // chart starts at 6 AM
+const NOW_INDEX = 11; // 5 PM bar
 
 const HOURLY: HourBar[] = [
   { label: '6a', value: 22 },
@@ -37,25 +39,43 @@ const HOURLY: HourBar[] = [
   { label: '', value: 12 },
 ];
 
-const BAR_COLORS = [
-  '#e74c3c', '#3498db', '#f1c40f', '#9b59b6', '#1abc9c', '#e67e22',
-  '#2ecc71', '#fd79a8', '#0984e3', '#d35400', '#6c5ce7', '#00b894',
-  '#e84393', '#fdcb6e', '#74b9ff', '#a29bfe', '#ff7675', '#55efc4',
+const AREAS: Area[] = [
+  { id: 'weights', name: 'Weight Room', icon: 'barbell', busy: 78, capacity: 120, hours: '6:00 AM – 11:00 PM' },
+  { id: 'cardio', name: 'Cardio Deck', icon: 'bicycle', busy: 55, capacity: 90, hours: '6:00 AM – 11:00 PM' },
+  { id: 'pool', name: 'Pool', icon: 'water', busy: 30, capacity: 60, hours: '7:00 AM – 9:00 PM' },
+  { id: 'courts', name: 'Courts', icon: 'basketball', busy: 64, capacity: 80, hours: '8:00 AM – 10:30 PM' },
+  { id: 'climbing', name: 'Climbing Wall', icon: 'trending-up', busy: 41, capacity: 25, hours: '3:00 PM – 10:00 PM' },
 ];
 
-const AREAS: Area[] = [
-  { id: 'weights', name: 'Weight Room', icon: 'barbell', iconSize: 28, busy: 78, capacity: 120, hours: '6:00 AM – 11:00 PM' },
-  { id: 'cardio', name: 'Cardio Deck', icon: 'bicycle', iconSize: 16, busy: 55, capacity: 90, hours: '6:00 AM – 11:00 PM' },
-  { id: 'pool', name: 'Pool', icon: 'water', iconSize: 22, busy: 30, capacity: 60, hours: '7:00 AM – 9:00 PM' },
-  { id: 'courts', name: 'Courts', icon: 'basketball', iconSize: 19, busy: 64, capacity: 80, hours: '8:00 AM – 10:30 PM' },
-  { id: 'climbing', name: 'Climbing Wall', icon: 'trending-up', iconSize: 32, busy: 41, capacity: 25, hours: '3:00 PM – 10:00 PM' },
-];
+const COLORS = {
+  bg: '#f4f6f5',
+  card: '#ffffff',
+  text: '#111827',
+  muted: '#6b7280',
+  track: '#e5e7eb',
+  primary: '#0b6e4f',
+  low: '#16a34a',
+  mid: '#d97706',
+  high: '#dc2626',
+};
 
 function busyLabel(value: number) {
   if (value >= 75) return 'Very busy';
   if (value >= 50) return 'Moderately busy';
   if (value >= 30) return 'A little busy';
   return 'Not busy';
+}
+
+// One color scale used everywhere: green = quiet, amber = moderate, red = packed.
+function busyColor(value: number) {
+  if (value >= 75) return COLORS.high;
+  if (value >= 50) return COLORS.mid;
+  return COLORS.low;
+}
+
+function hourLabel(index: number) {
+  const h = FIRST_HOUR + index;
+  return `${h % 12 === 0 ? 12 : h % 12} ${h >= 12 ? 'PM' : 'AM'}`;
 }
 
 function timeNow() {
@@ -68,75 +88,183 @@ function timeNow() {
 export default function RecCenterScreen() {
   const [busy, setBusy] = useState<number>(62);
   const [updated, setUpdated] = useState<string>('5:42 PM');
+  const [refreshing, setRefreshing] = useState(false);
+  const [selectedHour, setSelectedHour] = useState<number>(NOW_INDEX);
+  const [openId, setOpenId] = useState<string | null>(null);
 
   const refresh = () => {
+    if (refreshing) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setRefreshing(true);
     setTimeout(() => {
       const change = Math.round(Math.random() * 8) - 4;
       setBusy((prev) => Math.min(100, Math.max(0, prev + change)));
       setUpdated(timeNow());
+      setRefreshing(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }, 1800);
   };
 
-  const openArea = (area: Area) => {
-    const people = Math.round((area.busy / 100) * area.capacity);
-    Alert.alert(
-      area.name,
-      `${busyLabel(area.busy)} (${area.busy}%)\nAbout ${people} of ${area.capacity} people\nHours today: ${area.hours}`
-    );
+  const toggleArea = (id: string) => {
+    Haptics.selectionAsync();
+    setOpenId((prev) => (prev === id ? null : id));
   };
 
+  const pickHour = (i: number) => {
+    Haptics.selectionAsync();
+    setSelectedHour(i);
+  };
+
+  const quietest = [...AREAS].sort((a, b) => a.busy - b.busy)[0];
+  const nowColor = busyColor(busy);
+  const picked = HOURLY[selectedHour];
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 26 }}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+    >
       <Text style={styles.title}>Rec Center</Text>
-      <Text style={styles.subtitle}>Live crowd meter</Text>
 
-      <View style={styles.nowBox}>
-        <Text style={styles.nowLabel}>How busy right now</Text>
-        <Text style={styles.nowValue}>
-          {busy}% · {busyLabel(busy)}
-        </Text>
-        <Text style={styles.nowValue}>{OPEN_HOURS}</Text>
-        <Text style={styles.updated}>Last updated {updated}</Text>
+      {/* Hero: the one number people come here for */}
+      <View style={styles.hero}>
+        <Text style={styles.heroLabel}>RIGHT NOW</Text>
+        <View style={styles.heroRow}>
+          <Text style={[styles.heroValue, { color: nowColor }]}>{busy}%</Text>
+          <View style={[styles.pill, { backgroundColor: nowColor + '1f' }]}>
+            <View style={[styles.pillDot, { backgroundColor: nowColor }]} />
+            <Text style={[styles.pillText, { color: nowColor }]}>{busyLabel(busy)}</Text>
+          </View>
+        </View>
+        <View style={styles.meter}>
+          <View style={[styles.meterFill, { width: `${busy}%`, backgroundColor: nowColor }]} />
+        </View>
+        <Text style={styles.heroMeta}>{OPEN_HOURS}</Text>
+
+        <View style={styles.heroFooter}>
+          <Text style={styles.updated}>Updated {updated}</Text>
+          <Pressable
+            onPress={refresh}
+            disabled={refreshing}
+            accessibilityRole="button"
+            accessibilityLabel="Refresh crowd level"
+            style={({ pressed }) => [
+              styles.refreshButton,
+              pressed && styles.pressed,
+              refreshing && styles.refreshing,
+            ]}
+          >
+            {refreshing ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Ionicons name="refresh" size={18} color="#fff" />
+            )}
+            <Text style={styles.refreshText}>{refreshing ? 'Updating' : 'Refresh'}</Text>
+          </Pressable>
+        </View>
       </View>
 
-      <TouchableOpacity style={styles.refreshButton} onPress={refresh}>
-        <Text style={styles.refreshText}>Refresh</Text>
-      </TouchableOpacity>
-
-      <Text style={styles.sectionTitle}>Busy by hour (today)</Text>
-      <View style={styles.chart}>
-        {HOURLY.map((bar, i) => (
-          <View key={i} style={styles.barColumn}>
-            <View style={styles.barTrack}>
-              <View
-                style={[styles.bar, { height: `${bar.value}%`, backgroundColor: BAR_COLORS[i % BAR_COLORS.length] }]}
-              />
-            </View>
-            <Text style={styles.barLabel}>{bar.label}</Text>
-          </View>
-        ))}
+      {/* Chart: tap a bar to read it */}
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Busy by hour</Text>
+        <Text style={styles.sectionHint}>Tap a bar</Text>
+      </View>
+      <View style={styles.card}>
+        <View style={styles.chartReadout}>
+          <Text style={styles.readoutTime}>
+            {hourLabel(selectedHour)}
+            {selectedHour === NOW_INDEX ? ' · now' : ''}
+          </Text>
+          <Text style={[styles.readoutValue, { color: busyColor(picked.value) }]}>
+            {picked.value}% · {busyLabel(picked.value)}
+          </Text>
+        </View>
+        <View style={styles.chart}>
+          {HOURLY.map((bar, i) => {
+            const selected = i === selectedHour;
+            return (
+              <Pressable
+                key={i}
+                onPress={() => pickHour(i)}
+                accessibilityRole="button"
+                accessibilityLabel={`${hourLabel(i)}, ${bar.value} percent busy`}
+                style={styles.barColumn}
+              >
+                <View style={styles.barTrack}>
+                  <View
+                    style={[
+                      styles.bar,
+                      {
+                        height: `${bar.value}%`,
+                        backgroundColor: busyColor(bar.value),
+                        opacity: selected ? 1 : 0.35,
+                      },
+                    ]}
+                  />
+                </View>
+                <Text style={[styles.barLabel, selected && styles.barLabelActive]}>{bar.label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
       </View>
 
-      <Text style={[styles.sectionTitle, { marginTop: 9 }]}>Areas</Text>
-      {AREAS.map((area) => (
-        <TouchableWithoutFeedback key={area.id} onPress={() => openArea(area)}>
-          <View style={styles.areaRow}>
-            <Ionicons
-              name={area.icon}
-              size={area.iconSize}
-              color="#2d3436"
-              style={{ marginTop: area.id === 'pool' ? 6 : 0 }}
-            />
-            <View style={styles.areaText}>
-              <Text style={styles.areaName}>{area.name}</Text>
-              <Text style={styles.areaBusy}>
-                {busyLabel(area.busy)} · {area.busy}%
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={16} color="#999" />
-          </View>
-        </TouchableWithoutFeedback>
-      ))}
+      {/* Areas */}
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Areas</Text>
+        <Text style={styles.sectionHint}>Quietest: {quietest.name}</Text>
+      </View>
+      <View style={styles.areaList}>
+        {AREAS.map((area) => {
+          const open = openId === area.id;
+          const color = busyColor(area.busy);
+          const people = Math.round((area.busy / 100) * area.capacity);
+          return (
+            <Pressable
+              key={area.id}
+              onPress={() => toggleArea(area.id)}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: open }}
+              style={({ pressed }) => [styles.areaCard, pressed && styles.pressed]}
+            >
+              <View style={styles.areaRow}>
+                <View style={styles.areaIcon}>
+                  <Ionicons name={area.icon} size={22} color={COLORS.primary} />
+                </View>
+                <View style={styles.areaText}>
+                  <Text style={styles.areaName}>{area.name}</Text>
+                  <Text style={[styles.areaBusy, { color }]}>
+                    {busyLabel(area.busy)} · {area.busy}%
+                  </Text>
+                </View>
+                <Ionicons
+                  name={open ? 'chevron-up' : 'chevron-down'}
+                  size={20}
+                  color={COLORS.muted}
+                />
+              </View>
+              <View style={styles.areaMeter}>
+                <View style={[styles.meterFill, { width: `${area.busy}%`, backgroundColor: color }]} />
+              </View>
+              {open && (
+                <View style={styles.areaDetail}>
+                  <View style={styles.detailItem}>
+                    <Ionicons name="people-outline" size={16} color={COLORS.muted} />
+                    <Text style={styles.detailText}>
+                      About {people} of {area.capacity} people
+                    </Text>
+                  </View>
+                  <View style={styles.detailItem}>
+                    <Ionicons name="time-outline" size={16} color={COLORS.muted} />
+                    <Text style={styles.detailText}>Hours today: {area.hours}</Text>
+                  </View>
+                </View>
+              )}
+            </Pressable>
+          );
+        })}
+      </View>
     </ScrollView>
   );
 }
@@ -144,71 +272,154 @@ export default function RecCenterScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f1f4f2',
-    paddingHorizontal: 7,
+    backgroundColor: COLORS.bg,
+  },
+  content: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 32,
   },
   title: {
-    fontSize: 40,
-    fontWeight: '800',
-    color: '#1e272e',
-    marginTop: 5,
+    fontSize: 28,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginBottom: 16,
   },
-  subtitle: {
+  pressed: {
+    opacity: 0.7,
+    transform: [{ scale: 0.98 }],
+  },
+
+  hero: {
+    backgroundColor: COLORS.card,
+    borderRadius: 20,
+    padding: 20,
+  },
+  heroLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 1,
+    color: COLORS.muted,
+  },
+  heroRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 4,
+  },
+  heroValue: {
+    fontSize: 64,
+    fontWeight: '700',
+    lineHeight: 72,
+  },
+  pill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    minHeight: 32,
+    borderRadius: 16,
+  },
+  pillDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 6,
+  },
+  pillText: {
     fontSize: 14,
-    color: '#636e72',
-    marginBottom: 3,
+    fontWeight: '600',
   },
-  nowBox: {
-    backgroundColor: '#fff',
-    padding: 8,
-    borderRadius: 8,
+  meter: {
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: COLORS.track,
+    overflow: 'hidden',
+    marginTop: 8,
   },
-  nowLabel: {
-    fontSize: 13,
-    color: '#636e72',
+  meterFill: {
+    height: '100%',
+    borderRadius: 4,
   },
-  nowValue: {
-    fontSize: 15,
-    color: '#2d3436',
-    marginTop: 2,
+  heroMeta: {
+    fontSize: 14,
+    color: COLORS.muted,
+    marginTop: 12,
+  },
+  heroFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 16,
   },
   updated: {
     fontSize: 12,
-    color: '#888',
-    marginTop: 5,
+    color: COLORS.muted,
   },
   refreshButton: {
-    backgroundColor: '#007AFF',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 44,
-    borderRadius: 8,
-    marginTop: 13,
+    gap: 8,
+    minHeight: 44,
+    minWidth: 120,
+    paddingHorizontal: 16,
+    borderRadius: 22,
+    backgroundColor: COLORS.primary,
+  },
+  refreshing: {
+    opacity: 0.8,
   },
   refreshText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
   },
+
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    marginTop: 24,
+    marginBottom: 8,
+  },
   sectionTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#1e272e',
-    marginTop: 20,
-    marginBottom: 4,
+    fontSize: 20,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  sectionHint: {
+    fontSize: 13,
+    color: COLORS.muted,
+  },
+
+  card: {
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    padding: 16,
+  },
+  chartReadout: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+    marginBottom: 12,
+  },
+  readoutTime: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  readoutValue: {
+    fontSize: 15,
+    fontWeight: '600',
   },
   chart: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    backgroundColor: '#fff',
-    paddingHorizontal: 5,
-    paddingTop: 10,
-    paddingBottom: 4,
-    borderRadius: 8,
   },
   barColumn: {
     flex: 1,
     alignItems: 'center',
+    minHeight: 44,
   },
   barTrack: {
     height: 120,
@@ -217,35 +428,73 @@ const styles = StyleSheet.create({
   },
   bar: {
     width: '100%',
-    borderTopLeftRadius: 3,
-    borderTopRightRadius: 3,
+    borderTopLeftRadius: 4,
+    borderTopRightRadius: 4,
   },
   barLabel: {
-    fontSize: 9,
-    color: '#bbb',
-    marginTop: 3,
-    height: 12,
+    fontSize: 11,
+    color: COLORS.muted,
+    marginTop: 4,
+    height: 14,
+  },
+  barLabelActive: {
+    color: COLORS.text,
+    fontWeight: '600',
+  },
+
+  areaList: {
+    gap: 8,
+  },
+  areaCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    padding: 16,
   },
   areaRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: '#fff',
-    paddingHorizontal: 6,
-    paddingVertical: 11,
-    marginBottom: 2,
-    borderRadius: 6,
+    alignItems: 'center',
+    minHeight: 44,
+  },
+  areaIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: COLORS.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   areaText: {
     flex: 1,
-    marginLeft: 8,
+    marginLeft: 12,
   },
   areaName: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '600',
-    color: '#2d3436',
+    color: COLORS.text,
   },
   areaBusy: {
-    fontSize: 13,
-    color: '#636e72',
+    fontSize: 14,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  areaMeter: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: COLORS.track,
+    overflow: 'hidden',
+    marginTop: 12,
+  },
+  areaDetail: {
+    marginTop: 12,
+    gap: 8,
+  },
+  detailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  detailText: {
+    fontSize: 14,
+    color: COLORS.muted,
   },
 });
