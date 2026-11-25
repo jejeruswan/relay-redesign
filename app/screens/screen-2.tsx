@@ -124,59 +124,74 @@ export default function StudentPortalScreen() {
 
   const renderClass = (item: ClassItem, waitlisted: boolean) => (
     <View key={item.id} style={styles.classCard}>
-      <Text style={[styles.classCode, { color: item.color }]}>{item.code}</Text>
-      <Text style={styles.classTitle}>{item.title}</Text>
-      <View style={styles.sectionBox}>
+      <View style={[styles.colorBar, { backgroundColor: item.color }]} />
+      <View style={styles.classBody}>
+        <View style={styles.classHeader}>
+          <Text style={styles.classCode}>{item.code}</Text>
+          <Text style={styles.unitsText}>{item.units} units</Text>
+        </View>
+        <Text style={styles.classTitle} numberOfLines={2}>
+          {item.title}
+        </Text>
         <Text style={styles.sectionText}>
-          {item.section.label} · {item.section.days} {item.section.time}
+          {item.section.days} · {item.section.time}
         </Text>
-        <Text style={styles.roomText}>{item.section.room}</Text>
-      </View>
-      <Text style={styles.unitsText}>{item.units} units</Text>
-      {waitlisted && 'position' in item && (
-        <Text style={styles.waitText}>
-          Waitlist position: {(item as WaitlistItem).position} of {(item as WaitlistItem).size}
+        <Text style={styles.roomText}>
+          {item.section.label} · {item.section.room}
         </Text>
-      )}
-      <View style={styles.actions}>
-        <TouchableOpacity onPress={() => dropClass(item, waitlisted)}>
-          <Text style={styles.actionLink}>Drop</Text>
-        </TouchableOpacity>
-        <Text style={{ color: '#ccc', marginHorizontal: 10 }}>|</Text>
-        <TouchableOpacity onPress={() => swapClass(item, waitlisted)}>
-          <Text style={styles.actionLink}>Swap</Text>
-        </TouchableOpacity>
+        {waitlisted && 'position' in item && (
+          <View style={styles.waitPill}>
+            <Text style={styles.waitText}>
+              Waitlist: {(item as WaitlistItem).position} of {(item as WaitlistItem).size}
+            </Text>
+          </View>
+        )}
+        <View style={styles.actions}>
+          <TouchableOpacity
+            style={styles.swapButton}
+            onPress={() => swapClass(item, waitlisted)}
+          >
+            <Text style={styles.swapText}>Swap section</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.dropButton}
+            onPress={() => dropClass(item, waitlisted)}
+          >
+            <Text style={styles.dropText}>Drop</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.appName}>Student Portal</Text>
       <Text style={styles.term}>{TERM}</Text>
+      <Text style={styles.appName}>Student Portal</Text>
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Enrollment Appointment</Text>
-        <View style={styles.innerCard}>
-          <Text style={styles.appointment}>{APPOINTMENT}</Text>
-        </View>
-        <View style={styles.innerCard}>
-          <Text style={styles.unitsLabel}>Units</Text>
-          <Text style={styles.unitsValue}>
-            {units} / {MAX_UNITS} max
+      <View style={styles.hero}>
+        <Text style={styles.heroLabel}>NEXT UP</Text>
+        <Text style={styles.heroTitle}>{APPOINTMENT}</Text>
+        <View style={styles.unitsRow}>
+          <Text style={styles.heroUnits}>
+            {units}
+            <Text style={styles.heroUnitsMax}> / {MAX_UNITS} units</Text>
           </Text>
         </View>
+        <View style={styles.track}>
+          <View style={[styles.fill, { width: `${Math.min(100, (units / MAX_UNITS) * 100)}%` }]} />
+        </View>
       </View>
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Enrolled</Text>
-        {enrolled.map((c) => renderClass(c, false))}
-      </View>
+      <Text style={styles.sectionHeader}>Enrolled · {enrolled.length}</Text>
+      {enrolled.map((c) => renderClass(c, false))}
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Waitlisted</Text>
-        {waitlist.map((c) => renderClass(c, true))}
-      </View>
+      {waitlist.length > 0 && (
+        <>
+          <Text style={styles.sectionHeader}>Waitlisted · {waitlist.length}</Text>
+          {waitlist.map((c) => renderClass(c, true))}
+        </>
+      )}
     </ScrollView>
   );
 }
@@ -184,154 +199,165 @@ export default function StudentPortalScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#eef1f6',
+    backgroundColor: '#f4f5f8',
   },
   content: {
-    padding: 16,
-    alignItems: 'center',
+    padding: 20,
     paddingBottom: 40,
   },
+  term: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#2d6cdf',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
   appName: {
-    fontSize: 26,
+    fontSize: 30,
     fontWeight: '800',
     color: '#1f2a44',
-    textAlign: 'center',
-  },
-  term: {
-    fontSize: 15,
-    fontWeight: '300',
-    color: '#2d6cdf',
-    textAlign: 'center',
-    marginBottom: 14,
-  },
-  card: {
-    width: '100%',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#d6dbe4',
-    padding: 14,
     marginBottom: 16,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 3,
   },
-  cardTitle: {
-    fontSize: 18,
+  hero: {
+    backgroundColor: '#1f2a44',
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 24,
+  },
+  heroLabel: {
+    fontSize: 11,
     fontWeight: '700',
-    color: '#1f2a44',
-    textAlign: 'center',
-    marginBottom: 10,
+    letterSpacing: 1,
+    color: '#8fb4ff',
   },
-  innerCard: {
-    width: '100%',
-    backgroundColor: '#f2f2f2',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#dcdcdc',
-    padding: 12,
-    marginBottom: 10,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 2,
+  heroTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#fff',
+    marginTop: 4,
   },
-  appointment: {
+  unitsRow: {
+    marginTop: 16,
+  },
+  heroUnits: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  heroUnitsMax: {
     fontSize: 14,
-    color: '#b0b0b0',
-    textAlign: 'center',
-  },
-  unitsLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#888',
-    textAlign: 'center',
-  },
-  unitsValue: {
-    fontSize: 20,
     fontWeight: '500',
-    color: '#6c3fc9',
-    textAlign: 'center',
+    color: '#aab4cc',
+  },
+  track: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#3a4666',
+    marginTop: 8,
+    overflow: 'hidden',
+  },
+  fill: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#8fb4ff',
+  },
+  sectionHeader: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#6b7488',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom: 10,
+    marginTop: 4,
   },
   classCard: {
-    width: '100%',
-    backgroundColor: '#fafbfd',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#dde2ea',
-    padding: 12,
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    borderRadius: 12,
     marginBottom: 12,
-    alignItems: 'center',
+    overflow: 'hidden',
     shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
+  colorBar: {
+    width: 5,
+  },
+  classBody: {
+    flex: 1,
+    padding: 14,
+  },
+  classHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+  },
   classCode: {
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: '800',
-    textAlign: 'center',
-  },
-  classTitle: {
-    fontSize: 13,
-    fontWeight: '400',
-    color: '#444',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  sectionBox: {
-    width: '100%',
-    backgroundColor: '#fff',
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#e3e3e3',
-    paddingVertical: 8,
-    alignItems: 'center',
-    marginBottom: 6,
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 2,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 1,
-  },
-  sectionText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#333',
-    textAlign: 'center',
-  },
-  roomText: {
-    fontSize: 12,
-    color: '#666',
-    textAlign: 'center',
+    color: '#1f2a44',
   },
   unitsText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
-    color: '#27ae60',
-    textAlign: 'center',
+    color: '#6b7488',
+  },
+  classTitle: {
+    fontSize: 14,
+    color: '#555d70',
+    marginTop: 2,
+    marginBottom: 10,
+  },
+  sectionText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2a44',
+  },
+  roomText: {
+    fontSize: 13,
+    color: '#6b7488',
+    marginTop: 2,
+  },
+  waitPill: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#fff4e0',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginTop: 10,
   },
   waitText: {
-    fontSize: 11,
-    color: '#777',
-    textAlign: 'center',
-    marginTop: 2,
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#b36b00',
   },
   actions: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 6,
+    marginTop: 12,
   },
-  actionLink: {
-    fontSize: 13,
-    color: '#007AFF',
-    paddingVertical: 3,
+  swapButton: {
+    minHeight: 44,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    backgroundColor: '#eaf1ff',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  swapText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2d6cdf',
+  },
+  dropButton: {
+    minHeight: 44,
+    minWidth: 44,
+    paddingHorizontal: 12,
+    justifyContent: 'center',
+  },
+  dropText: {
+    fontSize: 14,
+    color: '#c0392b',
   },
 });
