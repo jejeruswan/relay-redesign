@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type Library = {
   id: string;
   name: string;
+  short: string;
   hours: string;
 };
 
@@ -20,11 +22,11 @@ type Room = {
 };
 
 const LIBRARIES: Library[] = [
-  { id: 'moffitt', name: 'Moffitt', hours: 'Open 8:00 AM – 2:00 AM' },
-  { id: 'doe', name: 'Doe', hours: 'Open 9:00 AM – 10:00 PM' },
-  { id: 'stacks', name: 'Main Stacks', hours: 'Open 9:00 AM – 10:00 PM' },
-  { id: 'eastasian', name: 'East Asian Library', hours: 'Open 10:00 AM – 6:00 PM' },
-  { id: 'kresge', name: 'Kresge Engineering', hours: 'Open 9:00 AM – 9:00 PM' },
+  { id: 'moffitt', name: 'Moffitt', short: 'Moffitt', hours: 'Open 8:00 AM – 2:00 AM' },
+  { id: 'doe', name: 'Doe', short: 'Doe', hours: 'Open 9:00 AM – 10:00 PM' },
+  { id: 'stacks', name: 'Main Stacks', short: 'Main Stacks', hours: 'Open 9:00 AM – 10:00 PM' },
+  { id: 'eastasian', name: 'East Asian Library', short: 'East Asian', hours: 'Open 10:00 AM – 6:00 PM' },
+  { id: 'kresge', name: 'Kresge Engineering', short: 'Kresge', hours: 'Open 9:00 AM – 9:00 PM' },
 ];
 
 const ROOMS: Room[] = [
@@ -42,6 +44,16 @@ const ROOMS: Room[] = [
 
 const HOURS: number[] = [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
 
+// One accent color; everything else is neutral.
+const ACCENT = '#3B4FD8';
+const ACCENT_SOFT = '#EDEFFC';
+const INK = '#14161A';
+const MUTED = '#6B7079';
+const FAINT = '#A3A8B0';
+const LINE = '#E3E5E9';
+const SURFACE = '#FFFFFF';
+const BG = '#F5F6F8';
+
 function formatHour(hour: number) {
   const suffix = hour >= 12 ? 'pm' : 'am';
   const display = hour > 12 ? hour - 12 : hour;
@@ -49,6 +61,7 @@ function formatHour(hour: number) {
 }
 
 export default function LibraryRoomsScreen() {
+  const insets = useSafeAreaInsets();
   const [libraryId, setLibraryId] = useState<string>('moffitt');
   const [roomId, setRoomId] = useState<string | null>(null);
   const [hour, setHour] = useState<number | null>(null);
@@ -70,6 +83,7 @@ export default function LibraryRoomsScreen() {
   };
 
   const isTaken = (r: Room, h: number) => r.taken.includes(h) || (booked[r.id] ?? []).includes(h);
+  const openCount = (r: Room) => HOURS.filter((h) => !isTaken(r, h)).length;
 
   const bookRoom = () => {
     if (!room || hour === null) {
@@ -91,238 +105,393 @@ export default function LibraryRoomsScreen() {
     }, 1800);
   };
 
+  const ready = !!room && hour !== null;
+  const bookLabel = ready
+    ? `Book ${room.name} · ${formatHour(hour)}–${formatHour(hour + 1)}`
+    : room
+      ? 'Pick a time'
+      : 'Pick a room';
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 30 }}>
-      <Text style={styles.appName}>Library Rooms</Text>
-      <Text style={styles.date}>Today, Monday Nov 23</Text>
+    <View style={styles.container}>
+      <ScrollView contentContainerStyle={styles.content}>
+        <Text style={styles.date}>Today · Monday, Nov 23</Text>
+        <Text style={styles.title}>Library Rooms</Text>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
-        {LIBRARIES.map((l) => (
-          <TouchableOpacity
-            key={l.id}
-            style={[styles.chip, l.id === libraryId && styles.chipActive]}
-            onPress={() => selectLibrary(l.id)}
-          >
-            <Text style={[styles.chipText, l.id === libraryId && { color: '#fff' }]}>{l.name}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
-      <Text style={styles.hours}>{library?.hours}</Text>
-
-      <Text style={styles.heading}>Rooms</Text>
-      {rooms.map((r) => (
-        <TouchableOpacity
-          key={r.id}
-          style={[styles.roomRow, r.id === roomId && styles.roomRowActive]}
-          onPress={() => selectRoom(r.id)}
-        >
-          <Text style={styles.roomName}>{r.name}</Text>
-          <Text style={styles.roomMeta}>{r.floor}</Text>
-          <View style={styles.infoRow}>
-            <Ionicons name="people" size={20} color="#555" style={{ marginTop: 6 }} />
-            <Text style={styles.roomMeta}> {r.capacity} people</Text>
-            {r.whiteboard && (
-              <View style={styles.amenity}>
-                <Ionicons name="easel-outline" size={14} color="#0aa5a5" />
-                <Text style={styles.amenityText}>Whiteboard</Text>
-              </View>
-            )}
-            {r.screen && (
-              <View style={styles.amenity}>
-                <Ionicons name="tv-outline" size={14} color="#0aa5a5" />
-                <Text style={styles.amenityText}>Screen</Text>
-              </View>
-            )}
-          </View>
-        </TouchableOpacity>
-      ))}
-
-      {room && (
-        <View style={styles.slotSection}>
-          <Text style={styles.heading}>Times for {room.name}</Text>
-          <View style={styles.legend}>
-            <View style={[styles.dot, { backgroundColor: '#2ecc40' }]} />
-            <Text style={styles.legendText}>Available</Text>
-            <View style={[styles.dot, { backgroundColor: '#ff3b30' }]} />
-            <Text style={styles.legendText}>Taken</Text>
-            <View style={[styles.dot, { backgroundColor: '#007AFF' }]} />
-            <Text style={styles.legendText}>Selected</Text>
-          </View>
-          <View style={styles.slotGrid}>
-            {HOURS.map((h) => {
-              const taken = isTaken(room, h);
-              const selected = h === hour;
-              return (
-                <TouchableOpacity
-                  key={h}
-                  disabled={taken}
-                  onPress={() => setHour(h)}
+        <View style={styles.chipWrap}>
+          {LIBRARIES.map((l) => {
+            const active = l.id === libraryId;
+            const count = ROOMS.filter((r) => r.libraryId === l.id).length;
+            const empty = count === 0;
+            return (
+              <TouchableOpacity
+                key={l.id}
+                style={[styles.chip, active && styles.chipActive]}
+                onPress={() => selectLibrary(l.id)}
+              >
+                <Text
                   style={[
-                    styles.slot,
-                    taken ? styles.slotTaken : styles.slotOpen,
-                    selected && styles.slotSelected,
+                    styles.chipText,
+                    empty && styles.chipTextEmpty,
+                    active && styles.chipTextActive,
                   ]}
                 >
-                  <Text style={styles.slotText}>{formatHour(h)}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-          <Text style={styles.legendText}>Bookings are 1 hour. Max 2 hours per day.</Text>
+                  {l.short}
+                </Text>
+                <Text
+                  style={[
+                    styles.chipCount,
+                    empty && styles.chipTextEmpty,
+                    active && styles.chipCountActive,
+                  ]}
+                >
+                  {count}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
-      )}
 
-      <TouchableOpacity style={styles.bookButton} onPress={bookRoom}>
-        <Text style={styles.bookText}>Book</Text>
-      </TouchableOpacity>
-    </ScrollView>
+        <View style={styles.hoursRow}>
+          <Ionicons name="time-outline" size={14} color={MUTED} />
+          <Text style={styles.hours}>{library?.hours}</Text>
+        </View>
+
+        <Text style={styles.sectionLabel}>
+          {rooms.length} {rooms.length === 1 ? 'room' : 'rooms'}
+        </Text>
+
+        {rooms.length === 0 && (
+          <View style={styles.empty}>
+            <Text style={styles.emptyText}>No bookable rooms at {library?.name}.</Text>
+          </View>
+        )}
+
+        {rooms.map((r) => {
+          const active = r.id === roomId;
+          const open = openCount(r);
+          return (
+            <View key={r.id} style={[styles.card, active && styles.cardActive]}>
+              <TouchableOpacity activeOpacity={0.6} onPress={() => selectRoom(r.id)}>
+                <View style={styles.cardTop}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.roomName}>{r.name}</Text>
+                    <Text style={styles.roomMeta}>
+                      {r.floor} · Up to {r.capacity} people
+                    </Text>
+                  </View>
+                  <View style={[styles.openPill, open === 0 && styles.openPillFull]}>
+                    <Text style={[styles.openPillText, open === 0 && styles.openPillTextFull]}>
+                      {open === 0 ? 'Full' : `${open} open`}
+                    </Text>
+                  </View>
+                </View>
+
+                {(r.whiteboard || r.screen) && (
+                  <View style={styles.amenities}>
+                    {r.whiteboard && (
+                      <View style={styles.amenity}>
+                        <Ionicons name="easel-outline" size={14} color={MUTED} />
+                        <Text style={styles.amenityText}>Whiteboard</Text>
+                      </View>
+                    )}
+                    {r.screen && (
+                      <View style={styles.amenity}>
+                        <Ionicons name="tv-outline" size={14} color={MUTED} />
+                        <Text style={styles.amenityText}>Screen</Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              {active && (
+                <View style={styles.slotSection}>
+                  <View style={styles.divider} />
+                  <Text style={styles.slotHeading}>Choose a time</Text>
+                  <View style={styles.slotGrid}>
+                    {HOURS.map((h) => {
+                      const taken = isTaken(r, h);
+                      const selected = h === hour;
+                      return (
+                        <TouchableOpacity
+                          key={h}
+                          disabled={taken}
+                          onPress={() => setHour(h)}
+                          style={[
+                            styles.slot,
+                            taken && styles.slotTaken,
+                            selected && styles.slotSelected,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.slotText,
+                              taken && styles.slotTextTaken,
+                              selected && styles.slotTextSelected,
+                            ]}
+                          >
+                            {formatHour(h)}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                  <Text style={styles.note}>Bookings are 1 hour. Max 2 hours per day.</Text>
+                </View>
+              )}
+            </View>
+          );
+        })}
+      </ScrollView>
+
+      <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+        <TouchableOpacity
+          activeOpacity={0.85}
+          style={[styles.bookButton, !ready && styles.bookButtonIdle]}
+          onPress={bookRoom}
+        >
+          <Text style={[styles.bookText, !ready && styles.bookTextIdle]}>{bookLabel}</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f7f5f0',
-    paddingHorizontal: 5,
+    backgroundColor: BG,
   },
-  appName: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#222',
-    marginTop: 13,
+  content: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 24,
   },
   date: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 2,
+    fontSize: 13,
+    fontWeight: '500',
+    color: MUTED,
   },
-  chipRow: {
-    marginTop: 8,
-    flexGrow: 0,
+  title: {
+    fontSize: 30,
+    fontWeight: '700',
+    color: INK,
+    marginTop: 2,
+    letterSpacing: -0.5,
+  },
+  chipWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 18,
   },
   chip: {
-    height: 40,
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     justifyContent: 'center',
-    paddingHorizontal: 14,
-    borderRadius: 20,
+    paddingHorizontal: 16,
+    borderRadius: 22,
+    backgroundColor: SURFACE,
     borderWidth: 1,
-    borderColor: '#8e44ad',
-    marginRight: 7,
+    borderColor: LINE,
   },
   chipActive: {
-    backgroundColor: '#8e44ad',
+    backgroundColor: INK,
+    borderColor: INK,
   },
   chipText: {
-    fontSize: 14,
-    color: '#8e44ad',
+    fontSize: 15,
+    fontWeight: '500',
+    color: INK,
+  },
+  chipTextActive: {
+    color: '#fff',
+  },
+  chipTextEmpty: {
+    color: FAINT,
+  },
+  chipCount: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: MUTED,
+  },
+  chipCountActive: {
+    color: 'rgba(255,255,255,0.7)',
+  },
+  hoursRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 12,
   },
   hours: {
     fontSize: 13,
-    color: '#666',
-    marginTop: 5,
+    color: MUTED,
   },
-  heading: {
-    fontSize: 17,
+  sectionLabel: {
+    fontSize: 13,
     fontWeight: '600',
-    color: '#f57c00',
-    marginTop: 8,
-    marginBottom: 5,
+    color: MUTED,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginTop: 28,
+    marginBottom: 10,
   },
-  roomRow: {
-    backgroundColor: '#fff',
-    padding: 7,
-    marginBottom: 6,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#e2e2e2',
+  empty: {
+    backgroundColor: SURFACE,
+    borderRadius: 14,
+    padding: 20,
+    alignItems: 'center',
   },
-  roomRowActive: {
-    borderColor: '#007AFF',
-    borderWidth: 2,
+  emptyText: {
+    fontSize: 15,
+    color: MUTED,
+  },
+  card: {
+    backgroundColor: SURFACE,
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 10,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+  },
+  cardActive: {
+    borderColor: ACCENT,
+  },
+  cardTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
   },
   roomName: {
-    fontSize: 14,
-    color: '#333',
+    fontSize: 18,
+    fontWeight: '600',
+    color: INK,
   },
   roomMeta: {
     fontSize: 14,
-    color: '#333',
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    flexWrap: 'wrap',
+    color: MUTED,
     marginTop: 3,
+  },
+  openPill: {
+    backgroundColor: ACCENT_SOFT,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  openPillFull: {
+    backgroundColor: BG,
+  },
+  openPillText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: ACCENT,
+  },
+  openPillTextFull: {
+    color: FAINT,
+  },
+  amenities: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 12,
   },
   amenity: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: 13,
+    gap: 5,
+    backgroundColor: BG,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
   amenityText: {
-    fontSize: 14,
-    color: '#0aa5a5',
-    marginLeft: 3,
+    fontSize: 13,
+    color: MUTED,
   },
   slotSection: {
     marginTop: 4,
   },
-  legend: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: LINE,
+    marginVertical: 14,
   },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 4,
-    marginLeft: 6,
-  },
-  legendText: {
-    fontSize: 12,
-    color: '#b5b5b5',
+  slotHeading: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: INK,
+    marginBottom: 10,
   },
   slotGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginBottom: 5,
+    justifyContent: 'space-between',
+    rowGap: 8,
   },
   slot: {
-    width: 80,
-    height: 26,
-    borderRadius: 13,
+    width: '23%',
+    minHeight: 44,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 5,
-    marginBottom: 7,
-  },
-  slotOpen: {
-    backgroundColor: '#2ecc40',
+    backgroundColor: SURFACE,
+    borderWidth: 1,
+    borderColor: LINE,
   },
   slotTaken: {
-    backgroundColor: '#ff3b30',
+    backgroundColor: BG,
+    borderColor: BG,
   },
   slotSelected: {
-    backgroundColor: '#007AFF',
+    backgroundColor: ACCENT,
+    borderColor: ACCENT,
   },
   slotText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: INK,
+  },
+  slotTextTaken: {
+    color: FAINT,
+    textDecorationLine: 'line-through',
+  },
+  slotTextSelected: {
     color: '#fff',
-    fontSize: 12,
     fontWeight: '600',
   },
+  note: {
+    fontSize: 12,
+    color: MUTED,
+    marginTop: 12,
+  },
+  bottomBar: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    backgroundColor: SURFACE,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: LINE,
+  },
   bookButton: {
-    alignSelf: 'flex-end',
-    marginTop: 22,
+    minHeight: 52,
+    borderRadius: 14,
+    backgroundColor: ACCENT,
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: '#bbb',
+  },
+  bookButtonIdle: {
+    backgroundColor: '#E8EAEE',
   },
   bookText: {
-    fontSize: 13,
-    color: '#888',
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  bookTextIdle: {
+    color: MUTED,
   },
 });
