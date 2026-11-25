@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { type ComponentRef, useRef, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { BlurTargetView, BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 
 type Meal = 'Breakfast' | 'Lunch' | 'Dinner';
 type Tag = 'V' | 'VG' | 'GF' | 'Halal' | 'Contains Nuts';
@@ -19,11 +21,11 @@ type Hall = {
 const MEALS: Meal[] = ['Breakfast', 'Lunch', 'Dinner'];
 
 const TAG_COLORS: Record<Tag, string> = {
-  V: '#00b84d',
-  VG: '#00a3cc',
-  GF: '#ff9500',
-  Halal: '#8e24aa',
-  'Contains Nuts': '#e6007e',
+  V: '#276039',
+  VG: '#215972',
+  GF: '#785006',
+  Halal: '#723c83',
+  'Contains Nuts': '#8a3549',
 };
 
 const HALLS: Hall[] = [
@@ -104,136 +106,175 @@ const HALLS: Hall[] = [
 ];
 
 export default function CampusDiningScreen() {
+  const backdrop = useRef<ComponentRef<typeof View>>(null);
   const [hallId, setHallId] = useState<string>('crossroads');
   const [meal, setMeal] = useState<Meal>('Lunch');
-  const [openMenu, setOpenMenu] = useState<'hall' | 'meal' | null>(null);
+  const [mealMenuOpen, setMealMenuOpen] = useState(false);
 
   const hall = HALLS.find((h) => h.id === hallId) ?? HALLS[0];
   const stations = hall.menu[meal];
 
+  const glassBlur = (
+    <BlurView
+      pointerEvents="none"
+      style={StyleSheet.absoluteFill}
+      blurTarget={backdrop}
+      blurMethod="dimezisBlurViewSdk31Plus"
+      tint="systemUltraThinMaterialLight"
+      intensity={28}
+    />
+  );
+
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={{ flexGrow: 1, padding: 14, paddingBottom: 40 }}
-      onScrollBeginDrag={() => setOpenMenu(null)}
-    >
-      {openMenu !== null && (
-        <Pressable style={styles.backdrop} onPress={() => setOpenMenu(null)} accessibilityLabel="Close menu" />
-      )}
-      <Text style={styles.appName}>Campus Dining</Text>
-      <Text style={styles.subtitle}>Today's Menu</Text>
+    <View style={styles.container}>
+      <BlurTargetView ref={backdrop} pointerEvents="none" style={StyleSheet.absoluteFill}>
+        <LinearGradient
+          colors={['#fffdf0', '#fff4ce', '#fff9e5']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+      </BlurTargetView>
 
-      <View style={styles.dropdownRow}>
-        <View style={styles.dropdownCol}>
-          <Text style={styles.dropdownLabel}>Dining hall</Text>
-          <TouchableOpacity
-            style={[styles.dropdownButton, openMenu === 'hall' && styles.dropdownButtonOpen]}
-            onPress={() => setOpenMenu(openMenu === 'hall' ? null : 'hall')}
-          >
-            <Text style={styles.dropdownValue} numberOfLines={1}>{hall.name}</Text>
-            <Ionicons name={openMenu === 'hall' ? 'chevron-up' : 'chevron-down'} size={18} color="#8a7f70" />
-          </TouchableOpacity>
-          {openMenu === 'hall' && (
-            <View style={styles.dropdownList}>
-              {HALLS.map((h) => (
-                <TouchableOpacity
-                  key={h.id}
-                  style={styles.dropdownOption}
-                  onPress={() => {
-                    setHallId(h.id);
-                    setOpenMenu(null);
-                  }}
-                >
-                  <Text style={[styles.dropdownOptionText, h.id === hallId && styles.dropdownOptionTextActive]}>
-                    {h.name}
-                  </Text>
-                  {h.id === hallId && <Ionicons name="checkmark" size={18} color="#c0392b" />}
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-        </View>
-
-        <View style={styles.dropdownCol}>
-          <Text style={styles.dropdownLabel}>Meal</Text>
-          <TouchableOpacity
-            style={[styles.dropdownButton, openMenu === 'meal' && styles.dropdownButtonOpen]}
-            onPress={() => setOpenMenu(openMenu === 'meal' ? null : 'meal')}
-          >
-            <Text style={styles.dropdownValue} numberOfLines={1}>{meal}</Text>
-            <Ionicons name={openMenu === 'meal' ? 'chevron-up' : 'chevron-down'} size={18} color="#8a7f70" />
-          </TouchableOpacity>
-          {openMenu === 'meal' && (
-            <View style={styles.dropdownList}>
-              {MEALS.map((m) => (
-                <TouchableOpacity
-                  key={m}
-                  style={styles.dropdownOption}
-                  onPress={() => {
-                    setMeal(m);
-                    setOpenMenu(null);
-                  }}
-                >
-                  <Text style={[styles.dropdownOptionText, m === meal && styles.dropdownOptionTextActive]}>{m}</Text>
-                  {m === meal && <Ionicons name="checkmark" size={18} color="#c0392b" />}
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-        </View>
-      </View>
-
-      <View style={styles.hallCard}>
-        <Text style={styles.hallName}>{hall.name}</Text>
-        <View style={styles.hoursRow}>
-          <Text style={styles.hours}>{hall.hours}</Text>
-          <View style={[styles.statusPill, { backgroundColor: hall.open ? '#00e600' : '#ff1a1a' }]}>
-            <Text style={styles.statusText}>{hall.open ? 'OPEN NOW' : 'CLOSED'}</Text>
-          </View>
-        </View>
-
-        {stations.length === 0 && (
-          <Text style={styles.emptyText}>No {meal.toLowerCase()} served at {hall.name} today.</Text>
+      <ScrollView
+        contentContainerStyle={{ flexGrow: 1, padding: 14, paddingBottom: 40 }}
+        onScrollBeginDrag={() => setMealMenuOpen(false)}
+      >
+        {mealMenuOpen && (
+          <Pressable style={styles.backdrop} onPress={() => setMealMenuOpen(false)} accessibilityLabel="Close menu" />
         )}
+        <Text style={[styles.titleTypeface, styles.appName]}>Campus Dining</Text>
+        <Text style={[styles.titleTypeface, styles.subtitle]}>Today's Menu</Text>
 
-        {stations.map((s) => (
-          <View key={s.name} style={styles.section}>
-            <Text style={styles.stationName}>{s.name}</Text>
-            {s.items.map((item, i) => (
-              <View key={item.name} style={[styles.itemRow, i > 0 && styles.itemDivider]}>
-                <Text style={styles.itemName}>{item.name}</Text>
-                <View style={styles.tagRow}>
-                  {item.tags.map((t) => (
-                    <View key={t} style={[styles.tag, { backgroundColor: TAG_COLORS[t] + '1F' }]}>
-                      <Text style={[styles.tagText, { color: TAG_COLORS[t] }]}>{t}</Text>
-                    </View>
-                  ))}
-                </View>
+        <View style={[styles.glass, styles.selector]}>
+          {glassBlur}
+          {HALLS.map((h) => (
+            <TouchableOpacity
+              key={h.id}
+              accessibilityRole="button"
+              accessibilityState={{ selected: h.id === hallId }}
+              style={[styles.option, h.id === hallId && styles.selected]}
+              onPress={() => {
+                setHallId(h.id);
+                setMealMenuOpen(false);
+              }}
+            >
+              <Text style={[styles.titleTypeface, styles.hallLabel]}>{h.name}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <View style={styles.dropdownRow}>
+          <View style={styles.dropdownCol}>
+            <Text style={[styles.titleTypeface, styles.dropdownLabel]}>Meal</Text>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityState={{ expanded: mealMenuOpen }}
+              style={[styles.glass, styles.dropdownButton, mealMenuOpen && styles.dropdownButtonOpen]}
+              onPress={() => setMealMenuOpen(!mealMenuOpen)}
+            >
+              {glassBlur}
+              <Text style={[styles.titleTypeface, styles.dropdownValue]} numberOfLines={1}>{meal}</Text>
+              <Ionicons name={mealMenuOpen ? 'chevron-up' : 'chevron-down'} size={18} color="#675242" />
+            </TouchableOpacity>
+            {mealMenuOpen && (
+              <View style={[styles.glass, styles.dropdownList]}>
+                {glassBlur}
+                {MEALS.map((m) => (
+                  <TouchableOpacity
+                    key={m}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: m === meal }}
+                    style={styles.dropdownOption}
+                    onPress={() => {
+                      setMeal(m);
+                      setMealMenuOpen(false);
+                    }}
+                  >
+                    <Text style={[styles.titleTypeface, styles.dropdownOptionText, m === meal && styles.dropdownOptionTextActive]}>{m}</Text>
+                    {m === meal && <Ionicons name="checkmark" size={18} color="#c0392b" />}
+                  </TouchableOpacity>
+                ))}
               </View>
-            ))}
+            )}
           </View>
-        ))}
-      </View>
-    </ScrollView>
+        </View>
+
+        <View style={styles.hallCard}>
+          <Text style={[styles.titleTypeface, styles.hallName]}>{hall.name}</Text>
+          <View style={styles.hoursRow}>
+            <Text style={[styles.titleTypeface, styles.hours]}>{hall.hours}</Text>
+            <View style={[styles.statusPill, { backgroundColor: hall.open ? '#27603922' : '#8a354922' }]}>
+              <Text style={[styles.titleTypeface, styles.statusText, { color: hall.open ? '#276039' : '#8a3549' }]}>{hall.open ? 'OPEN NOW' : 'CLOSED'}</Text>
+            </View>
+          </View>
+
+          {stations.length === 0 && (
+            <Text style={[styles.titleTypeface, styles.emptyText]}>No {meal.toLowerCase()} served at {hall.name} today.</Text>
+          )}
+
+          {stations.map((s) => (
+            <View key={s.name} style={styles.section}>
+              <Text style={[styles.titleTypeface, styles.stationName]}>{s.name}</Text>
+              {s.items.map((item, i) => (
+                <View key={item.name} style={[styles.itemRow, i > 0 && styles.itemDivider]}>
+                  <Text style={[styles.titleTypeface, styles.itemName]}>{item.name}</Text>
+                  <View style={styles.tagRow}>
+                    {item.tags.map((t) => (
+                      <View key={t} style={[styles.tag, { backgroundColor: TAG_COLORS[t] + '1F' }]}>
+                        <Text style={[styles.titleTypeface, styles.tagText, { color: TAG_COLORS[t] }]}>{t}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              ))}
+            </View>
+          ))}
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  titleTypeface: { fontWeight: '800' },
   container: {
     flex: 1,
     backgroundColor: '#fff8ec',
   },
+  glass: {
+    backgroundColor: 'rgba(255, 255, 255, 0.38)',
+    borderColor: 'rgba(151, 106, 45, 0.23)',
+    borderTopColor: 'rgba(255, 255, 255, 0.95)',
+    borderWidth: 1,
+    borderRadius: 24,
+    overflow: 'hidden',
+  },
+  selector: { flexDirection: 'row', alignItems: 'stretch', gap: 2, padding: 4, marginBottom: 12 },
+  option: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 44,
+    justifyContent: 'center',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  selected: {
+    backgroundColor: 'rgba(255, 199, 84, 0.34)',
+    borderColor: 'rgba(151, 95, 26, 0.30)',
+    borderTopColor: 'rgba(255, 255, 255, 0.95)',
+  },
+  hallLabel: { fontSize: 12, color: '#492d23', textAlign: 'center' },
   appName: {
     fontSize: 36,
-    fontWeight: '800',
     letterSpacing: -0.5,
     color: '#c0392b',
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 15,
-    fontWeight: '500',
-    color: '#8a7f70',
+    color: '#675242',
     textAlign: 'center',
     marginTop: 2,
     marginBottom: 16,
@@ -252,20 +293,20 @@ const styles = StyleSheet.create({
     elevation: 10,
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 10,
-    marginBottom: 16,
+    gap: 8,
+    marginBottom: 12,
   },
   dropdownCol: {
     flex: 1,
+    maxWidth: 240,
     position: 'relative',
   },
   dropdownLabel: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#8a7f70',
+    color: '#675242',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginBottom: 6,
+    marginBottom: 4,
     marginLeft: 2,
   },
   dropdownButton: {
@@ -275,9 +316,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 12,
     borderRadius: 10,
-    backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#e0d6c4',
   },
   dropdownButtonOpen: {
     borderColor: '#c0392b',
@@ -285,25 +324,18 @@ const styles = StyleSheet.create({
   dropdownValue: {
     flex: 1,
     fontSize: 15,
-    fontWeight: '600',
     color: '#222',
     marginRight: 6,
   },
   dropdownList: {
-    position: 'absolute',
-    top: '100%',
-    left: 0,
-    right: 0,
+    backgroundColor: 'rgba(255, 249, 225, 0.85)',
     marginTop: 4,
     shadowColor: '#000',
     shadowOpacity: 0.15,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 6 },
-    elevation: 12,
     borderRadius: 10,
-    backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#e0d6c4',
     overflow: 'hidden',
   },
   dropdownOption: {
@@ -318,7 +350,6 @@ const styles = StyleSheet.create({
     color: '#444',
   },
   dropdownOptionTextActive: {
-    fontWeight: '700',
     color: '#c0392b',
   },
   hallCard: {
@@ -333,11 +364,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 3 },
-    elevation: 2,
   },
   hallName: {
     fontSize: 20,
-    fontWeight: '700',
     color: '#333',
   },
   hoursRow: {
@@ -345,13 +374,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     marginTop: 4,
-    paddingBottom: 14,
+    paddingBottom: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#e0d6c4',
   },
   hours: {
     fontSize: 12,
-    color: '#888',
+    color: '#675242',
   },
   statusPill: {
     paddingHorizontal: 10,
@@ -360,12 +389,10 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: 10,
-    fontWeight: '800',
-    color: '#fff',
   },
   emptyText: {
     fontSize: 14,
-    color: '#8a7f70',
+    color: '#675242',
     textAlign: 'center',
     paddingVertical: 24,
   },
@@ -375,7 +402,6 @@ const styles = StyleSheet.create({
   },
   stationName: {
     fontSize: 13,
-    fontWeight: '700',
     color: '#d35400',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
@@ -411,6 +437,5 @@ const styles = StyleSheet.create({
   },
   tagText: {
     fontSize: 11,
-    fontWeight: '700',
   },
 });
