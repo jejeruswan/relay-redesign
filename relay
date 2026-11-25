@@ -8,6 +8,7 @@
 #   ./relay status      show your round, screen and focus
 #   ./relay table N     print the rotation table for N people
 #   ./relay round R     jump to round R (only if you got out of sync)
+#   ./relay solo S      makeup: do all 4 rounds yourself on screen S (no git)
 #
 # Works with the bash that ships on macOS (3.2) and on Linux.
 
@@ -68,6 +69,17 @@ load_state() {
   PERSON=$(sed -n 's/^PERSON=//p' "$STATE_FILE")
   TOTAL=$(sed -n 's/^TOTAL=//p' "$STATE_FILE")
   ROUND=$(sed -n 's/^ROUND=//p' "$STATE_FILE")
+  MODE=$(sed -n 's/^MODE=//p' "$STATE_FILE")
+  if [ "$MODE" = "solo" ]; then
+    SCREEN=$(sed -n 's/^SCREEN=//p' "$STATE_FILE")
+    if ! is_number "$SCREEN" || ! is_number "$ROUND"; then
+      fail "Your .relay-me file looks broken. Run ./relay solo <screen number> again."
+    fi
+    FILE="app/screens/screen-$SCREEN.tsx"
+    BRANCH="main"
+    return 0
+  fi
+  MODE=relay
   if ! is_number "$PERSON" || ! is_number "$TOTAL" || ! is_number "$ROUND"; then
     fail "Your .relay-me file looks broken. Run ./relay setup <your number> <total people> again."
   fi
@@ -77,7 +89,80 @@ load_state() {
 }
 
 save_state() {
-  printf 'PERSON=%s\nTOTAL=%s\nROUND=%s\n' "$PERSON" "$TOTAL" "$ROUND" > "$STATE_FILE"
+  if [ "${MODE:-relay}" = "solo" ]; then
+    printf 'MODE=solo\nSCREEN=%s\nROUND=%s\n' "$SCREEN" "$ROUND" > "$STATE_FILE"
+  else
+    printf 'PERSON=%s\nTOTAL=%s\nROUND=%s\n' "$PERSON" "$TOTAL" "$ROUND" > "$STATE_FILE"
+  fi
+}
+
+# ---- Solo mode (makeup): one person, one screen, all 4 rounds, no git. ----
+
+solo_banner() {
+  local focus line
+  focus=$(focus_name "$ROUND")
+  line="━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  say ""
+  say "${BOLD}${CYAN}${line}${RESET}"
+  say "${BOLD}  SOLO · ROUND $ROUND OF $ROUNDS · SCREEN $SCREEN · FOCUS IS $focus${RESET}"
+  say "${BOLD}  ONLY EDIT $FILE${RESET}"
+  say "${BOLD}${CYAN}${line}${RESET}"
+  say "  $(focus_tip "$ROUND")"
+  say "  ${DIM}In the app, tap Screen $SCREEN.${RESET}"
+  say "  ${DIM}Spend about 5-10 minutes on this focus only.${RESET}"
+  say "  ${BOLD}${YELLOW}When you're done: take a screenshot on your phone, then run ./relay next${RESET}"
+  say ""
+}
+
+solo_done_message() {
+  say ""
+  say "${BOLD}${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+  say "${BOLD}  ALL $ROUNDS ROUNDS DONE ON SCREEN $SCREEN · THANK YOU! 🎉${RESET}"
+  say "${BOLD}${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+  say "  Post your 4 screenshots in the Slack thread under your instructor's message, in order:"
+  say "    round 1 (hierarchy) · round 2 (spacing and type)"
+  say "    round 3 (color and polish) · round 4 (feel)"
+  say ""
+}
+
+cmd_solo() {
+  local s=${1:-}
+  [ -n "$s" ] || fail "Usage: ./relay solo <screen number>   (example: ./relay solo 7)"
+  is_number "$s" || fail "The screen should be a whole number, like 7. You typed: $s"
+  s=$((10#$s))
+  [ "$s" -ge 1 ] && [ "$s" -le "$MAX_SCREENS" ] || fail "The screen has to be between 1 and $MAX_SCREENS."
+  MODE=solo; SCREEN=$s; ROUND=1
+  save_state
+  ok "Solo mode: you'll do all $ROUNDS rounds on screen $SCREEN. Round set to 1."
+  say "  Next, run:  ${BOLD}./relay start${RESET}"
+}
+
+solo_check_branch() {
+  local cur
+  cur=$(current_branch)
+  if [ -n "$cur" ] && [ "$cur" != "main" ]; then
+    warn "You're on '$cur', not 'main'. Solo mode uses the original screens on main."
+    warn "Run  git checkout main  (in your own terminal), then ./relay start"
+  fi
+}
+
+solo_start() {
+  if [ "$ROUND" -gt "$ROUNDS" ]; then solo_done_message; return 0; fi
+  solo_check_branch
+  solo_banner
+}
+
+solo_next() {
+  if [ "$ROUND" -gt "$ROUNDS" ]; then solo_done_message; return 0; fi
+  ok "Round $ROUND ($(focus_name "$ROUND")) done. Make sure you took your screenshot!"
+  ROUND=$((ROUND + 1))
+  save_state
+  if [ "$ROUND" -gt "$ROUNDS" ]; then
+    solo_done_message
+    return 0
+  fi
+  say "  ${DIM}Type /clear in Claude Code, then keep going on the same screen.${RESET}"
+  solo_banner
 }
 
 banner() {
@@ -203,6 +288,7 @@ cmd_setup() {
 
 cmd_start() {
   load_state
+  if [ "$MODE" = "solo" ]; then solo_start; return 0; fi
   if [ "$ROUND" -gt "$ROUNDS" ]; then done_message; return 0; fi
   require_git_repo
   local others
@@ -220,6 +306,7 @@ cmd_start() {
 
 cmd_next() {
   load_state
+  if [ "$MODE" = "solo" ]; then solo_next; return 0; fi
   if [ "$ROUND" -gt "$ROUNDS" ]; then done_message; return 0; fi
   require_git_repo
 
@@ -292,6 +379,20 @@ cmd_next() {
 
 cmd_status() {
   load_state
+  if [ "$MODE" = "solo" ]; then
+    if [ "$ROUND" -gt "$ROUNDS" ]; then
+      say "Solo on screen $SCREEN · all $ROUNDS rounds done. Post your 4 screenshots in the Slack thread!"
+      return 0
+    fi
+    say ""
+    say "  ${BOLD}Mode${RESET}    solo (makeup), screenshots only, nothing is pushed"
+    say "  ${BOLD}Round${RESET}   $ROUND of $ROUNDS"
+    say "  ${BOLD}Screen${RESET}  $SCREEN  ($FILE)"
+    say "  ${BOLD}Focus${RESET}   $(focus_name "$ROUND") · $(focus_tip "$ROUND")"
+    solo_check_branch
+    say ""
+    return 0
+  fi
   if [ "$ROUND" -gt "$ROUNDS" ]; then
     say "Person $PERSON of $TOTAL · all $ROUNDS rounds done."
     return 0
@@ -352,10 +453,14 @@ cmd_help() {
   say "  ./relay table N     print the full rotation for N people"
   say "  ./relay round R     jump to round R (only if you got out of sync)"
   say ""
+  say "${BOLD}Makeup (solo)${RESET}"
+  say "  ./relay solo S      do all 4 rounds yourself on screen S (screenshots only)"
+  say ""
 }
 
 case "${1:-help}" in
   setup)  shift; cmd_setup "$@" ;;
+  solo)   shift; cmd_solo "$@" ;;
   start)  cmd_start ;;
   next)   cmd_next ;;
   status) cmd_status ;;

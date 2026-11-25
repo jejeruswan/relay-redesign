@@ -34,6 +34,20 @@ npx expo start
 
 Lost? `./relay status` shows where you are.
 
+## Makeup (missed the session)
+
+You'll do all 4 rounds yourself on one screen. Your instructor tells you which screen. Nothing gets pushed, you just send screenshots.
+
+1. Do the setup above, open the app in Expo Go, and run:
+   ```bash
+   ./relay solo 7
+   ./relay start
+   ```
+   (Use your own screen number instead of 7.) Read the banner carefully: it shows your round, your screen, the focus, and the one file you may edit.
+2. Tap your screen in the app. Use Claude Code to improve it, staying on the round's focus (about 5–10 minutes).
+3. **Take a screenshot**, then run `./relay next`. That moves you to the next round's focus on the same screen. Type `/clear` in Claude Code and repeat from step 2.
+4. After round 4, post your 4 screenshots (one per round) in the Slack thread under your instructor's message.
+
 ## Round themes
 
 | Round | Focus | Ask yourself |

@@ -5,6 +5,8 @@ This repo is a classroom design relay. Each git branch `screen-N` belongs to exa
 ## Find the current screen first
 Run `git branch --show-current`. If it prints `screen-7`, the ONLY file you may edit is `app/screens/screen-7.tsx`. (`./relay status` also shows the screen and this round's focus.)
 
+**Solo (makeup) mode:** if the branch is `main`, run `./relay status`. It says "solo" and names the one screen file. The student does all 4 rounds on that same screen, one focus per round. The same rules apply: only edit that one file.
+
 ## Hard rules
 - Only edit the screen file for the current branch. Never edit other screens, `app/index.tsx`, `app/_layout.tsx`, `package.json`, `app.json`, `tsconfig.json`, the `relay` script, or any other shared file.
 - Never create new files. No shared components, theme files or helpers. Everything stays inside the one screen file.
