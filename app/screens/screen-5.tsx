@@ -1,5 +1,7 @@
-import { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
+import { type ComponentRef, useRef, useState } from 'react';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { BlurTargetView, BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 
 type HourBar = { label: string; value: number };
@@ -8,7 +10,6 @@ type Area = {
   id: string;
   name: string;
   icon: keyof typeof Ionicons.glyphMap;
-  iconSize: number;
   busy: number;
   capacity: number;
   hours: string;
@@ -38,17 +39,19 @@ const HOURLY: HourBar[] = [
 ];
 
 const BAR_COLORS = [
-  '#e74c3c', '#3498db', '#f1c40f', '#9b59b6', '#1abc9c', '#e67e22',
-  '#2ecc71', '#fd79a8', '#0984e3', '#d35400', '#6c5ce7', '#00b894',
-  '#e84393', '#fdcb6e', '#74b9ff', '#a29bfe', '#ff7675', '#55efc4',
-];
+  ['rgba(40, 151, 196, 0.91)', 'rgba(40, 151, 196, 0.24)'],
+  ['rgba(15, 142, 123, 0.91)', 'rgba(15, 142, 123, 0.24)'],
+  ['rgba(169, 104, 16, 0.91)', 'rgba(169, 104, 16, 0.24)'],
+  ['rgba(198, 84, 51, 0.91)', 'rgba(198, 84, 51, 0.24)'],
+  ['rgba(128, 75, 196, 0.91)', 'rgba(128, 75, 196, 0.24)'],
+] as const;
 
 const AREAS: Area[] = [
-  { id: 'weights', name: 'Weight Room', icon: 'barbell', iconSize: 28, busy: 78, capacity: 120, hours: '6:00 AM – 11:00 PM' },
-  { id: 'cardio', name: 'Cardio Deck', icon: 'bicycle', iconSize: 16, busy: 55, capacity: 90, hours: '6:00 AM – 11:00 PM' },
-  { id: 'pool', name: 'Pool', icon: 'water', iconSize: 22, busy: 30, capacity: 60, hours: '7:00 AM – 9:00 PM' },
-  { id: 'courts', name: 'Courts', icon: 'basketball', iconSize: 19, busy: 64, capacity: 80, hours: '8:00 AM – 10:30 PM' },
-  { id: 'climbing', name: 'Climbing Wall', icon: 'trending-up', iconSize: 32, busy: 41, capacity: 25, hours: '3:00 PM – 10:00 PM' },
+  { id: 'weights', name: 'Weight Room', icon: 'barbell', busy: 78, capacity: 120, hours: '6:00 AM – 11:00 PM' },
+  { id: 'cardio', name: 'Cardio Deck', icon: 'bicycle', busy: 55, capacity: 90, hours: '6:00 AM – 11:00 PM' },
+  { id: 'pool', name: 'Pool', icon: 'water', busy: 30, capacity: 60, hours: '7:00 AM – 9:00 PM' },
+  { id: 'courts', name: 'Courts', icon: 'basketball', busy: 64, capacity: 80, hours: '8:00 AM – 10:30 PM' },
+  { id: 'climbing', name: 'Climbing Wall', icon: 'trending-up', busy: 41, capacity: 25, hours: '3:00 PM – 10:00 PM' },
 ];
 
 function busyLabel(value: number) {
@@ -66,6 +69,7 @@ function timeNow() {
 }
 
 export default function RecCenterScreen() {
+  const backdrop = useRef<ComponentRef<typeof View>>(null);
   const [busy, setBusy] = useState<number>(62);
   const [updated, setUpdated] = useState<string>('5:42 PM');
 
@@ -85,167 +89,160 @@ export default function RecCenterScreen() {
     );
   };
 
+  const glass = (
+    <BlurView
+      pointerEvents="none"
+      style={StyleSheet.absoluteFill}
+      blurTarget={backdrop}
+      blurMethod="dimezisBlurViewSdk31Plus"
+      tint="systemUltraThinMaterialLight"
+      intensity={32}
+    />
+  );
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 26 }}>
-      <Text style={styles.title}>Rec Center</Text>
-      <Text style={styles.subtitle}>Live crowd meter</Text>
+    <View style={styles.container}>
+      <BlurTargetView ref={backdrop} pointerEvents="none" style={StyleSheet.absoluteFill}>
+        <View style={styles.blueGlow} />
+        <View style={styles.violetGlow} />
+      </BlurTargetView>
 
-      <View style={styles.nowBox}>
-        <Text style={styles.nowLabel}>How busy right now</Text>
-        <Text style={styles.nowValue}>
-          {busy}% · {busyLabel(busy)}
-        </Text>
-        <Text style={styles.nowValue}>{OPEN_HOURS}</Text>
-        <Text style={styles.updated}>Last updated {updated}</Text>
-      </View>
+      <ScrollView contentContainerStyle={styles.content}>
+        <Text style={styles.title}>Rec Center</Text>
+        <Text style={styles.secondary}>Live crowd meter</Text>
 
-      <TouchableOpacity style={styles.refreshButton} onPress={refresh}>
-        <Text style={styles.refreshText}>Refresh</Text>
-      </TouchableOpacity>
-
-      <Text style={styles.sectionTitle}>Busy by hour (today)</Text>
-      <View style={styles.chart}>
-        {HOURLY.map((bar, i) => (
-          <View key={i} style={styles.barColumn}>
-            <View style={styles.barTrack}>
-              <View
-                style={[styles.bar, { height: `${bar.value}%`, backgroundColor: BAR_COLORS[i % BAR_COLORS.length] }]}
-              />
-            </View>
-            <Text style={styles.barLabel}>{bar.label}</Text>
+        <View style={[styles.glass, styles.nowBox]}>
+          {glass}
+          <Text style={styles.secondary}>How busy right now</Text>
+          <View style={styles.nowReading}>
+            <Text style={styles.nowValue}>{busy}%</Text>
+            <Text style={styles.status}>{busyLabel(busy)}</Text>
           </View>
-        ))}
-      </View>
+          <Text style={styles.hours}>{OPEN_HOURS}</Text>
+          <Text style={styles.updated}>Last updated {updated}</Text>
 
-      <Text style={[styles.sectionTitle, { marginTop: 9 }]}>Areas</Text>
-      {AREAS.map((area) => (
-        <TouchableWithoutFeedback key={area.id} onPress={() => openArea(area)}>
-          <View style={styles.areaRow}>
-            <Ionicons
-              name={area.icon}
-              size={area.iconSize}
-              color="#2d3436"
-              style={{ marginTop: area.id === 'pool' ? 6 : 0 }}
-            />
-            <View style={styles.areaText}>
-              <Text style={styles.areaName}>{area.name}</Text>
-              <Text style={styles.areaBusy}>
-                {busyLabel(area.busy)} · {area.busy}%
-              </Text>
+          <TouchableOpacity
+            accessibilityRole="button"
+            style={styles.refreshButton}
+            onPress={refresh}
+          >
+            <Ionicons name="refresh" size={18} color="#154a70" />
+            <Text style={styles.refreshText}>Refresh</Text>
+          </TouchableOpacity>
+        </View>
+
+        <Text style={styles.sectionTitle}>Busy by hour today</Text>
+        <View style={[styles.glass, styles.chart]}>
+          {glass}
+          {HOURLY.map((bar, i) => (
+            <View key={i} style={styles.barColumn}>
+              <View style={styles.barTrack}>
+                <LinearGradient
+                  colors={BAR_COLORS[Math.min(Math.floor(bar.value / 20), BAR_COLORS.length - 1)]}
+                  style={[styles.bar, { height: `${bar.value}%` }]}
+                />
+              </View>
+              <Text style={styles.barLabel}>{bar.label}</Text>
             </View>
-            <Ionicons name="chevron-forward" size={16} color="#999" />
-          </View>
-        </TouchableWithoutFeedback>
-      ))}
-    </ScrollView>
+          ))}
+        </View>
+
+        <Text style={styles.sectionTitle}>Areas</Text>
+        <View style={styles.areaList}>
+          {AREAS.map((area) => (
+            <TouchableOpacity
+              key={area.id}
+              accessibilityRole="button"
+              onPress={() => openArea(area)}
+              style={[styles.glass, styles.areaRow]}
+            >
+              {glass}
+              <View style={styles.areaIcon}>
+                <Ionicons name={area.icon} size={22} color="#246286" />
+              </View>
+              <View style={styles.areaText}>
+                <Text style={styles.areaName}>{area.name}</Text>
+                <Text style={styles.secondary}>{busyLabel(area.busy)} · {area.busy}%</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color="#56708a" />
+            </TouchableOpacity>
+          ))}
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f1f4f2',
-    paddingHorizontal: 7,
+  container: { flex: 1, backgroundColor: '#ffffff' },
+  content: { paddingHorizontal: 20, paddingTop: 18, paddingBottom: 28 },
+  blueGlow: {
+    position: 'absolute',
+    top: '13%',
+    right: -125,
+    width: 320,
+    height: 320,
+    borderRadius: 160,
+    backgroundColor: 'rgba(90, 178, 255, 0.08)',
   },
-  title: {
-    fontSize: 40,
-    fontWeight: '800',
-    color: '#1e272e',
-    marginTop: 5,
+  violetGlow: {
+    position: 'absolute',
+    bottom: '-6%',
+    left: -160,
+    width: 390,
+    height: 390,
+    borderRadius: 195,
+    backgroundColor: 'rgba(148, 110, 255, 0.07)',
   },
-  subtitle: {
-    fontSize: 14,
-    color: '#636e72',
-    marginBottom: 3,
+  title: { fontSize: 36, fontWeight: '800', color: '#17243b', letterSpacing: -1.2 },
+  secondary: { fontSize: 14, color: '#465670' },
+  glass: {
+    backgroundColor: 'rgba(223, 238, 253, 0.28)',
+    borderColor: 'rgba(105, 143, 185, 0.24)',
+    borderTopColor: 'rgba(143, 182, 222, 0.40)',
+    borderWidth: 1,
+    borderRadius: 24,
+    overflow: 'hidden',
   },
-  nowBox: {
-    backgroundColor: '#fff',
-    padding: 8,
-    borderRadius: 8,
-  },
-  nowLabel: {
-    fontSize: 13,
-    color: '#636e72',
-  },
-  nowValue: {
-    fontSize: 15,
-    color: '#2d3436',
-    marginTop: 2,
-  },
-  updated: {
-    fontSize: 12,
-    color: '#888',
-    marginTop: 5,
-  },
+  nowBox: { marginTop: 20, padding: 20 },
+  nowReading: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', gap: 8 },
+  nowValue: { fontSize: 40, fontWeight: '800', color: '#17243b', letterSpacing: -1.6 },
+  status: { fontSize: 16, fontWeight: '700', color: '#244466' },
+  hours: { marginTop: 12, fontSize: 14, color: '#263852' },
+  updated: { marginTop: 4, fontSize: 12, color: '#53657e' },
   refreshButton: {
-    backgroundColor: '#007AFF',
+    flexDirection: 'row',
+    gap: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    height: 44,
-    borderRadius: 8,
-    marginTop: 13,
+    minHeight: 48,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(74, 151, 201, 0.34)',
+    backgroundColor: 'rgba(116, 200, 244, 0.25)',
+    marginTop: 18,
   },
-  refreshText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  sectionTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#1e272e',
-    marginTop: 20,
-    marginBottom: 4,
-  },
+  refreshText: { color: '#154a70', fontSize: 16, fontWeight: '700' },
+  sectionTitle: { fontSize: 19, fontWeight: '700', color: '#17243b', marginTop: 24, marginBottom: 10 },
   chart: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
-    backgroundColor: '#fff',
-    paddingHorizontal: 5,
-    paddingTop: 10,
-    paddingBottom: 4,
-    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 14,
   },
-  barColumn: {
-    flex: 1,
+  barColumn: { flex: 1, alignItems: 'center' },
+  barTrack: { height: 96, width: '70%', maxWidth: 12, justifyContent: 'flex-end' },
+  bar: { width: '100%', borderRadius: 6 },
+  barLabel: { fontSize: 9, color: '#465670', marginTop: 6, minHeight: 12, width: 24, textAlign: 'center' },
+  areaList: { gap: 8 },
+  areaRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 20 },
+  areaIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(150, 208, 244, 0.23)',
   },
-  barTrack: {
-    height: 120,
-    width: 10,
-    justifyContent: 'flex-end',
-  },
-  bar: {
-    width: '100%',
-    borderTopLeftRadius: 3,
-    borderTopRightRadius: 3,
-  },
-  barLabel: {
-    fontSize: 9,
-    color: '#bbb',
-    marginTop: 3,
-    height: 12,
-  },
-  areaRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: '#fff',
-    paddingHorizontal: 6,
-    paddingVertical: 11,
-    marginBottom: 2,
-    borderRadius: 6,
-  },
-  areaText: {
-    flex: 1,
-    marginLeft: 8,
-  },
-  areaName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#2d3436',
-  },
-  areaBusy: {
-    fontSize: 13,
-    color: '#636e72',
-  },
+  areaText: { flex: 1, gap: 2 },
+  areaName: { fontSize: 16, fontWeight: '700', color: '#17243b' },
 });
