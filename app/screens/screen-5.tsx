@@ -47,11 +47,11 @@ const BAR_COLORS = [
 ] as const;
 
 const AREAS: Area[] = [
-  { id: 'weights', name: 'Weight Room', icon: 'barbell', busy: 78, capacity: 120, hours: '6:00 AM – 11:00 PM' },
-  { id: 'cardio', name: 'Cardio Deck', icon: 'bicycle', busy: 55, capacity: 90, hours: '6:00 AM – 11:00 PM' },
-  { id: 'pool', name: 'Pool', icon: 'water', busy: 30, capacity: 60, hours: '7:00 AM – 9:00 PM' },
-  { id: 'courts', name: 'Courts', icon: 'basketball', busy: 64, capacity: 80, hours: '8:00 AM – 10:30 PM' },
-  { id: 'climbing', name: 'Climbing Wall', icon: 'trending-up', busy: 41, capacity: 25, hours: '3:00 PM – 10:00 PM' },
+  { id: 'weights', name: 'Weight Room', icon: 'barbell-outline', busy: 78, capacity: 120, hours: '6:00 AM – 11:00 PM' },
+  { id: 'cardio', name: 'Cardio Deck', icon: 'bicycle-outline', busy: 55, capacity: 90, hours: '6:00 AM – 11:00 PM' },
+  { id: 'pool', name: 'Pool', icon: 'water-outline', busy: 30, capacity: 60, hours: '7:00 AM – 9:00 PM' },
+  { id: 'courts', name: 'Courts', icon: 'basketball-outline', busy: 64, capacity: 80, hours: '8:00 AM – 10:30 PM' },
+  { id: 'climbing', name: 'Climbing Wall', icon: 'trending-up-outline', busy: 41, capacity: 25, hours: '3:00 PM – 10:00 PM' },
 ];
 
 function busyLabel(value: number) {
@@ -109,11 +109,11 @@ export default function RecCenterScreen() {
 
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.title}>Rec Center</Text>
-        <Text style={styles.secondary}>Live crowd meter</Text>
+        <Text style={styles.subtitle}>Live crowd meter</Text>
 
         <View style={[styles.glass, styles.nowBox]}>
           {glass}
-          <Text style={styles.secondary}>How busy right now</Text>
+          <Text style={styles.eyebrow}>How busy right now</Text>
           <View style={styles.nowReading}>
             <Text style={styles.nowValue}>{busy}%</Text>
             <Text style={styles.status}>{busyLabel(busy)}</Text>
@@ -158,11 +158,11 @@ export default function RecCenterScreen() {
             >
               {glass}
               <View style={styles.areaIcon}>
-                <Ionicons name={area.icon} size={22} color="#246286" />
+                <Ionicons name={area.icon} size={20} color="#246286" />
               </View>
               <View style={styles.areaText}>
                 <Text style={styles.areaName}>{area.name}</Text>
-                <Text style={styles.secondary}>{busyLabel(area.busy)} · {area.busy}%</Text>
+                <Text style={styles.meta}>{busyLabel(area.busy)} · {area.busy}%</Text>
               </View>
               <Ionicons name="chevron-forward" size={16} color="#56708a" />
             </TouchableOpacity>
@@ -173,9 +173,15 @@ export default function RecCenterScreen() {
   );
 }
 
+// Spacing scale (multiples of 4): 4 · 8 · 12 · 16 · 20 · 24 · 32
+// Type scale: display 48 · title 32 · heading 20 · body 16 · meta 15 · caption 13 · micro 11
+const INK = '#17243b';
+const SECONDARY = '#4a5a72';
+const TERTIARY = '#6b7a90';
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#ffffff' },
-  content: { paddingHorizontal: 20, paddingTop: 18, paddingBottom: 28 },
+  content: { paddingHorizontal: 20, paddingTop: 24, paddingBottom: 32 },
   blueGlow: {
     position: 'absolute',
     top: '13%',
@@ -194,8 +200,16 @@ const styles = StyleSheet.create({
     borderRadius: 195,
     backgroundColor: 'rgba(148, 110, 255, 0.07)',
   },
-  title: { fontSize: 36, fontWeight: '800', color: '#17243b', letterSpacing: -1.2 },
-  secondary: { fontSize: 14, color: '#465670' },
+  title: { fontSize: 32, fontWeight: '700', color: INK, letterSpacing: -0.8 },
+  subtitle: { fontSize: 16, color: SECONDARY, marginTop: 4 },
+  eyebrow: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: TERTIARY,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  meta: { fontSize: 15, color: SECONDARY, fontVariant: ['tabular-nums'] },
   glass: {
     backgroundColor: 'rgba(223, 238, 253, 0.28)',
     borderColor: 'rgba(105, 143, 185, 0.24)',
@@ -204,12 +218,18 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     overflow: 'hidden',
   },
-  nowBox: { marginTop: 20, padding: 20 },
-  nowReading: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', gap: 8 },
-  nowValue: { fontSize: 40, fontWeight: '800', color: '#17243b', letterSpacing: -1.6 },
-  status: { fontSize: 16, fontWeight: '700', color: '#244466' },
-  hours: { marginTop: 12, fontSize: 14, color: '#263852' },
-  updated: { marginTop: 4, fontSize: 12, color: '#53657e' },
+  nowBox: { marginTop: 24, padding: 20 },
+  nowReading: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', gap: 8, marginTop: 4 },
+  nowValue: {
+    fontSize: 48,
+    fontWeight: '700',
+    color: INK,
+    letterSpacing: -1,
+    fontVariant: ['tabular-nums'],
+  },
+  status: { fontSize: 16, fontWeight: '600', color: INK },
+  hours: { marginTop: 12, fontSize: 15, color: SECONDARY },
+  updated: { marginTop: 4, fontSize: 13, color: TERTIARY, fontVariant: ['tabular-nums'] },
   refreshButton: {
     flexDirection: 'row',
     gap: 8,
@@ -220,29 +240,48 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(74, 151, 201, 0.34)',
     backgroundColor: 'rgba(116, 200, 244, 0.25)',
-    marginTop: 18,
+    marginTop: 20,
   },
-  refreshText: { color: '#154a70', fontSize: 16, fontWeight: '700' },
-  sectionTitle: { fontSize: 19, fontWeight: '700', color: '#17243b', marginTop: 24, marginBottom: 10 },
+  refreshText: { color: '#154a70', fontSize: 16, fontWeight: '600' },
+  sectionTitle: { fontSize: 20, fontWeight: '600', color: INK, letterSpacing: -0.2, marginTop: 32, marginBottom: 12 },
   chart: {
     flexDirection: 'row',
     paddingHorizontal: 12,
-    paddingVertical: 14,
+    paddingTop: 20,
+    paddingBottom: 12,
   },
   barColumn: { flex: 1, alignItems: 'center' },
   barTrack: { height: 96, width: '70%', maxWidth: 12, justifyContent: 'flex-end' },
   bar: { width: '100%', borderRadius: 6 },
-  barLabel: { fontSize: 9, color: '#465670', marginTop: 6, minHeight: 12, width: 24, textAlign: 'center' },
+  barLabel: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: TERTIARY,
+    marginTop: 8,
+    minHeight: 16,
+    width: 32,
+    textAlign: 'center',
+  },
   areaList: { gap: 8 },
-  areaRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 20 },
+  areaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
+    paddingLeft: 12,
+    paddingRight: 16,
+    minHeight: 64,
+    borderRadius: 20,
+  },
   areaIcon: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    flexShrink: 0,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(150, 208, 244, 0.23)',
   },
-  areaText: { flex: 1, gap: 2 },
-  areaName: { fontSize: 16, fontWeight: '700', color: '#17243b' },
+  areaText: { flex: 1, gap: 4 },
+  areaName: { fontSize: 16, fontWeight: '600', color: INK },
 });
