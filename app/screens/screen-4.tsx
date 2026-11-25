@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 type Meal = 'Breakfast' | 'Lunch' | 'Dinner';
 type Tag = 'V' | 'VG' | 'GF' | 'Halal' | 'Contains Nuts';
@@ -105,56 +106,106 @@ const HALLS: Hall[] = [
 export default function CampusDiningScreen() {
   const [hallId, setHallId] = useState<string>('crossroads');
   const [meal, setMeal] = useState<Meal>('Lunch');
+  const [openMenu, setOpenMenu] = useState<'hall' | 'meal' | null>(null);
 
   const hall = HALLS.find((h) => h.id === hallId) ?? HALLS[0];
   const stations = hall.menu[meal];
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ padding: 14, paddingBottom: 40 }}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={{ flexGrow: 1, padding: 14, paddingBottom: 40 }}
+      onScrollBeginDrag={() => setOpenMenu(null)}
+    >
+      {openMenu !== null && (
+        <Pressable style={styles.backdrop} onPress={() => setOpenMenu(null)} accessibilityLabel="Close menu" />
+      )}
       <Text style={styles.appName}>Campus Dining</Text>
       <Text style={styles.subtitle}>Today's Menu</Text>
 
-      <View style={styles.hallList}>
-        {HALLS.map((h) => (
+      <View style={styles.dropdownRow}>
+        <View style={styles.dropdownCol}>
+          <Text style={styles.dropdownLabel}>Dining hall</Text>
           <TouchableOpacity
-            key={h.id}
-            style={[styles.hallChip, h.id === hallId && styles.hallChipActive]}
-            onPress={() => setHallId(h.id)}
+            style={[styles.dropdownButton, openMenu === 'hall' && styles.dropdownButtonOpen]}
+            onPress={() => setOpenMenu(openMenu === 'hall' ? null : 'hall')}
           >
-            <Text style={[styles.hallChipText, h.id === hallId && { color: '#fff' }]}>{h.name}</Text>
+            <Text style={styles.dropdownValue} numberOfLines={1}>{hall.name}</Text>
+            <Ionicons name={openMenu === 'hall' ? 'chevron-up' : 'chevron-down'} size={18} color="#8a7f70" />
           </TouchableOpacity>
-        ))}
-      </View>
+          {openMenu === 'hall' && (
+            <View style={styles.dropdownList}>
+              {HALLS.map((h) => (
+                <TouchableOpacity
+                  key={h.id}
+                  style={styles.dropdownOption}
+                  onPress={() => {
+                    setHallId(h.id);
+                    setOpenMenu(null);
+                  }}
+                >
+                  <Text style={[styles.dropdownOptionText, h.id === hallId && styles.dropdownOptionTextActive]}>
+                    {h.name}
+                  </Text>
+                  {h.id === hallId && <Ionicons name="checkmark" size={18} color="#c0392b" />}
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
 
-      <View style={styles.mealTabs}>
-        {MEALS.map((m) => (
+        <View style={styles.dropdownCol}>
+          <Text style={styles.dropdownLabel}>Meal</Text>
           <TouchableOpacity
-            key={m}
-            style={[styles.mealTab, m === meal && styles.mealTabActive]}
-            onPress={() => setMeal(m)}
+            style={[styles.dropdownButton, openMenu === 'meal' && styles.dropdownButtonOpen]}
+            onPress={() => setOpenMenu(openMenu === 'meal' ? null : 'meal')}
           >
-            <Text style={[styles.mealTabText, m === meal && { color: '#fff' }]}>{m}</Text>
+            <Text style={styles.dropdownValue} numberOfLines={1}>{meal}</Text>
+            <Ionicons name={openMenu === 'meal' ? 'chevron-up' : 'chevron-down'} size={18} color="#8a7f70" />
           </TouchableOpacity>
-        ))}
+          {openMenu === 'meal' && (
+            <View style={styles.dropdownList}>
+              {MEALS.map((m) => (
+                <TouchableOpacity
+                  key={m}
+                  style={styles.dropdownOption}
+                  onPress={() => {
+                    setMeal(m);
+                    setOpenMenu(null);
+                  }}
+                >
+                  <Text style={[styles.dropdownOptionText, m === meal && styles.dropdownOptionTextActive]}>{m}</Text>
+                  {m === meal && <Ionicons name="checkmark" size={18} color="#c0392b" />}
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
       </View>
 
       <View style={styles.hallCard}>
         <Text style={styles.hallName}>{hall.name}</Text>
-        <Text style={styles.hours}>{hall.hours}</Text>
-        <View style={[styles.statusPill, { backgroundColor: hall.open ? '#00e600' : '#ff1a1a' }]}>
-          <Text style={styles.statusText}>{hall.open ? 'OPEN NOW' : 'CLOSED'}</Text>
+        <View style={styles.hoursRow}>
+          <Text style={styles.hours}>{hall.hours}</Text>
+          <View style={[styles.statusPill, { backgroundColor: hall.open ? '#00e600' : '#ff1a1a' }]}>
+            <Text style={styles.statusText}>{hall.open ? 'OPEN NOW' : 'CLOSED'}</Text>
+          </View>
         </View>
 
+        {stations.length === 0 && (
+          <Text style={styles.emptyText}>No {meal.toLowerCase()} served at {hall.name} today.</Text>
+        )}
+
         {stations.map((s) => (
-          <View key={s.name} style={styles.stationCard}>
+          <View key={s.name} style={styles.section}>
             <Text style={styles.stationName}>{s.name}</Text>
-            {s.items.map((item) => (
-              <View key={item.name} style={styles.itemBox}>
+            {s.items.map((item, i) => (
+              <View key={item.name} style={[styles.itemRow, i > 0 && styles.itemDivider]}>
                 <Text style={styles.itemName}>{item.name}</Text>
                 <View style={styles.tagRow}>
                   {item.tags.map((t) => (
-                    <View key={t} style={[styles.tag, { backgroundColor: TAG_COLORS[t] }]}>
-                      <Text style={styles.tagText}>{t}</Text>
+                    <View key={t} style={[styles.tag, { backgroundColor: TAG_COLORS[t] + '1F' }]}>
+                      <Text style={[styles.tagText, { color: TAG_COLORS[t] }]}>{t}</Text>
                     </View>
                   ))}
                 </View>
@@ -173,158 +224,193 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff8ec',
   },
   appName: {
-    fontSize: 28,
-    fontWeight: '900',
+    fontSize: 36,
+    fontWeight: '800',
+    letterSpacing: -0.5,
     color: '#c0392b',
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 15,
-    fontWeight: '300',
-    color: '#555',
+    fontWeight: '500',
+    color: '#8a7f70',
     textAlign: 'center',
-    marginBottom: 12,
+    marginTop: 2,
+    marginBottom: 16,
   },
-  hallList: {
+  backdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 5,
+    elevation: 5,
+  },
+  dropdownRow: {
+    zIndex: 10,
+    elevation: 10,
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    marginBottom: 10,
+    alignItems: 'flex-start',
+    gap: 10,
+    marginBottom: 16,
   },
-  hallChip: {
+  dropdownCol: {
+    flex: 1,
+    position: 'relative',
+  },
+  dropdownLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#8a7f70',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 6,
+    marginLeft: 2,
+  },
+  dropdownButton: {
     minHeight: 44,
-    justifyContent: 'center',
-    paddingHorizontal: 14,
-    borderRadius: 22,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    borderRadius: 10,
     backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#f0a500',
-    margin: 4,
+    borderColor: '#e0d6c4',
   },
-  hallChipActive: {
-    backgroundColor: '#f0a500',
+  dropdownButtonOpen: {
+    borderColor: '#c0392b',
   },
-  hallChipText: {
-    fontSize: 14,
+  dropdownValue: {
+    flex: 1,
+    fontSize: 15,
     fontWeight: '600',
-    color: '#b37700',
+    color: '#222',
+    marginRight: 6,
   },
-  mealTabs: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginBottom: 14,
-  },
-  mealTab: {
-    height: 28,
-    paddingHorizontal: 16,
-    justifyContent: 'center',
+  dropdownList: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    marginTop: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 12,
+    borderRadius: 10,
+    backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#007AFF',
-    marginHorizontal: 3,
-    borderRadius: 4,
+    borderColor: '#e0d6c4',
+    overflow: 'hidden',
   },
-  mealTabActive: {
-    backgroundColor: '#007AFF',
+  dropdownOption: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
   },
-  mealTabText: {
-    fontSize: 13,
-    color: '#007AFF',
+  dropdownOptionText: {
+    fontSize: 15,
+    color: '#444',
+  },
+  dropdownOptionTextActive: {
+    fontWeight: '700',
+    color: '#c0392b',
   },
   hallCard: {
     backgroundColor: '#fff',
-    borderRadius: 14,
-    borderWidth: 2,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: '#e0d6c4',
-    padding: 12,
-    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 4,
     shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
   },
   hallName: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '700',
     color: '#333',
-    textAlign: 'center',
+  },
+  hoursRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+    paddingBottom: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#e0d6c4',
   },
   hours: {
     fontSize: 12,
-    color: '#aaa',
-    textAlign: 'center',
-    marginTop: 2,
+    color: '#888',
   },
   statusPill: {
     paddingHorizontal: 10,
     paddingVertical: 3,
     borderRadius: 10,
-    marginTop: 6,
-    marginBottom: 12,
   },
   statusText: {
     fontSize: 10,
     fontWeight: '800',
     color: '#fff',
   },
-  stationCard: {
-    width: '100%',
-    backgroundColor: '#fdfdfd',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    padding: 10,
-    marginBottom: 12,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-  },
-  stationName: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#d35400',
+  emptyText: {
+    fontSize: 14,
+    color: '#8a7f70',
     textAlign: 'center',
+    paddingVertical: 24,
+  },
+  section: {
+    marginTop: 16,
     marginBottom: 8,
   },
-  itemBox: {
-    width: '100%',
-    borderWidth: 1,
-    borderColor: '#e8e8e8',
-    borderRadius: 6,
-    paddingVertical: 8,
-    marginBottom: 6,
+  stationName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#d35400',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 4,
+  },
+  itemRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 1,
+    minHeight: 44,
+    paddingVertical: 8,
+  },
+  itemDivider: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#eee5d6',
   },
   itemName: {
-    fontSize: 16,
-    fontWeight: '400',
-    color: '#222',
-    textAlign: 'center',
+    flex: 1,
+    fontSize: 15,
+    color: '#333',
+    marginRight: 8,
   },
   tagRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'center',
-    marginTop: 4,
+    justifyContent: 'flex-end',
+    gap: 4,
+    maxWidth: '50%',
   },
   tag: {
-    paddingHorizontal: 6,
+    paddingHorizontal: 7,
     paddingVertical: 2,
-    borderRadius: 8,
-    margin: 2,
+    borderRadius: 6,
   },
   tagText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#fff',
   },
 });
