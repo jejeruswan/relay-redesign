@@ -1,6 +1,7 @@
-import { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type Library = {
@@ -42,6 +43,8 @@ const ROOMS: Room[] = [
   { id: 'k3', libraryId: 'kresge', name: 'Room 212', floor: '2nd floor', capacity: 8, whiteboard: true, screen: true, taken: [9, 11, 12, 13, 14, 15, 17, 18, 19, 20] },
 ];
 
+const MAX_HOURS_PER_DAY = 2;
+
 const HOURS: number[] = [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
 
 // One accent color; everything else is neutral.
@@ -50,7 +53,7 @@ const ACCENT = '#3B4FD8';
 const ACCENT_SOFT = '#E9ECFC';
 const INK = '#161A33';
 const MUTED = '#636A85';
-const FAINT = '#9FA5BD';
+const FAINT = '#7C839C'; // disabled text, still readable on white and BG
 const LINE = '#E1E4F0';
 const SURFACE = '#FFFFFF';
 const BG = '#F4F5FB';
@@ -83,55 +86,80 @@ export default function LibraryRoomsScreen() {
   const [roomId, setRoomId] = useState<string | null>(null);
   const [hour, setHour] = useState<number | null>(null);
   const [booked, setBooked] = useState<Record<string, number[]>>({});
+  const [booking, setBooking] = useState(false);
+  const [confirmation, setConfirmation] = useState<string | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timer.current) clearTimeout(timer.current);
+    };
+  }, []);
 
   const library = LIBRARIES.find((l) => l.id === libraryId);
   const rooms = ROOMS.filter((r) => r.libraryId === libraryId);
   const room = rooms.find((r) => r.id === roomId);
 
+  const hoursUsed = Object.values(booked).reduce((n, list) => n + list.length, 0);
+  const limitReached = hoursUsed >= MAX_HOURS_PER_DAY;
+
   const selectLibrary = (id: string) => {
+    if (booking) return;
+    Haptics.selectionAsync();
     setLibraryId(id);
     setRoomId(null);
     setHour(null);
   };
 
   const selectRoom = (id: string) => {
-    setRoomId(id);
+    if (booking) return;
+    Haptics.selectionAsync();
+    setRoomId((prev) => (prev === id ? null : id));
     setHour(null);
+  };
+
+  const selectHour = (h: number) => {
+    if (booking) return;
+    Haptics.selectionAsync();
+    setConfirmation(null);
+    setHour((prev) => (prev === h ? null : h));
   };
 
   const isTaken = (r: Room, h: number) => r.taken.includes(h) || (booked[r.id] ?? []).includes(h);
   const openCount = (r: Room) => HOURS.filter((h) => !isTaken(r, h)).length;
 
   const bookRoom = () => {
-    if (!room || hour === null) {
-      Alert.alert('Select a room and time', 'Choose a room and an open time slot first.');
-      return;
-    }
+    if (!room || hour === null || booking) return;
     const bookedRoom = room;
     const bookedHour = hour;
-    setTimeout(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setBooking(true);
+    timer.current = setTimeout(() => {
       setBooked((prev) => ({
         ...prev,
         [bookedRoom.id]: [...(prev[bookedRoom.id] ?? []), bookedHour],
       }));
       setHour(null);
-      Alert.alert(
-        'Room booked',
-        `${bookedRoom.name}, ${library?.name}\nToday ${formatHour(bookedHour)} – ${formatHour(bookedHour + 1)}`
+      setBooking(false);
+      setConfirmation(
+        `${bookedRoom.name}, ${library?.name} · Today ${formatHour(bookedHour)}–${formatHour(bookedHour + 1)}`
       );
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }, 1800);
   };
 
   const ready = !!room && hour !== null;
-  const bookLabel = ready
-    ? `Book ${room.name} · ${formatHour(hour)}–${formatHour(hour + 1)}`
-    : room
-      ? 'Pick a time'
-      : 'Pick a room';
+  const bookLabel = booking
+    ? 'Booking…'
+    : ready
+      ? `Book ${room.name} · ${formatHour(hour)}–${formatHour(hour + 1)}`
+      : room
+        ? 'Pick a time'
+        : 'Pick a room';
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.date}>Today · Monday, Nov 23</Text>
         <Text style={styles.title}>Library Rooms</Text>
 
@@ -141,9 +169,16 @@ export default function LibraryRoomsScreen() {
             const count = ROOMS.filter((r) => r.libraryId === l.id).length;
             const empty = count === 0;
             return (
-              <TouchableOpacity
+              <Pressable
                 key={l.id}
-                style={[styles.chip, active && styles.chipActive]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                accessibilityLabel={`${l.name}, ${count} ${count === 1 ? 'room' : 'rooms'}`}
+                style={({ pressed }) => [
+                  styles.chip,
+                  active && styles.chipActive,
+                  pressed && styles.pressed,
+                ]}
                 onPress={() => selectLibrary(l.id)}
               >
                 <Text
@@ -164,7 +199,7 @@ export default function LibraryRoomsScreen() {
                 >
                   {count}
                 </Text>
-              </TouchableOpacity>
+              </Pressable>
             );
           })}
         </View>
@@ -180,26 +215,38 @@ export default function LibraryRoomsScreen() {
 
         {rooms.length === 0 && (
           <View style={styles.empty}>
-            <Text style={styles.emptyText}>No bookable rooms at {library?.name}.</Text>
+            <Ionicons name="book-outline" size={32} color={FAINT} />
+            <Text style={styles.emptyTitle}>No bookable rooms</Text>
+            <Text style={styles.emptyText}>
+              {library?.name} has no study rooms you can reserve. Try another library.
+            </Text>
           </View>
         )}
 
         {rooms.map((r) => {
           const active = r.id === roomId;
           const open = openCount(r);
+          const full = open === 0;
           return (
             <View key={r.id} style={[styles.card, active && styles.cardActive]}>
-              <TouchableOpacity activeOpacity={0.6} onPress={() => selectRoom(r.id)}>
+              <Pressable
+                disabled={full}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: active, disabled: full }}
+                accessibilityLabel={`${r.name}, ${full ? 'full' : `${open} times open`}`}
+                style={({ pressed }) => pressed && styles.pressed}
+                onPress={() => selectRoom(r.id)}
+              >
                 <View style={styles.cardTop}>
                   <View style={styles.cardInfo}>
-                    <Text style={styles.roomName}>{r.name}</Text>
+                    <Text style={[styles.roomName, full && styles.roomNameFull]}>{r.name}</Text>
                     <Text style={styles.roomMeta}>
                       {r.floor} · Up to {r.capacity} people
                     </Text>
                   </View>
-                  <View style={[styles.openPill, open === 0 && styles.openPillFull]}>
-                    <Text style={[styles.openPillText, open === 0 && styles.openPillTextFull]}>
-                      {open === 0 ? 'Full' : `${open} open`}
+                  <View style={[styles.openPill, full && styles.openPillFull]}>
+                    <Text style={[styles.openPillText, full && styles.openPillTextFull]}>
+                      {full ? 'Full' : `${open} open`}
                     </Text>
                   </View>
                 </View>
@@ -220,7 +267,7 @@ export default function LibraryRoomsScreen() {
                     )}
                   </View>
                 )}
-              </TouchableOpacity>
+              </Pressable>
 
               {active && (
                 <View style={styles.slotSection}>
@@ -229,32 +276,42 @@ export default function LibraryRoomsScreen() {
                   <View style={styles.slotGrid}>
                     {HOURS.map((h) => {
                       const taken = isTaken(r, h);
+                      const blocked = taken || limitReached;
                       const selected = h === hour;
                       return (
-                        <TouchableOpacity
+                        <Pressable
                           key={h}
-                          disabled={taken}
-                          onPress={() => setHour(h)}
-                          style={[
+                          disabled={blocked}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected, disabled: blocked }}
+                          accessibilityLabel={`${formatHour(h)}, ${taken ? 'taken' : limitReached ? 'daily limit reached' : 'available'}`}
+                          onPress={() => selectHour(h)}
+                          style={({ pressed }) => [
                             styles.slot,
-                            taken && styles.slotTaken,
+                            blocked && styles.slotTaken,
                             selected && styles.slotSelected,
+                            pressed && !blocked && styles.pressed,
                           ]}
                         >
                           <Text
                             style={[
                               styles.slotText,
-                              taken && styles.slotTextTaken,
+                              blocked && styles.slotTextTaken,
+                              taken && styles.slotTextStruck,
                               selected && styles.slotTextSelected,
                             ]}
                           >
                             {formatHour(h)}
                           </Text>
-                        </TouchableOpacity>
+                        </Pressable>
                       );
                     })}
                   </View>
-                  <Text style={styles.note}>Bookings are 1 hour. Max 2 hours per day.</Text>
+                  <Text style={[styles.note, limitReached && styles.noteLimit]}>
+                    {limitReached
+                      ? `Daily limit reached: ${hoursUsed} of ${MAX_HOURS_PER_DAY} hours booked.`
+                      : `Bookings are 1 hour. ${hoursUsed} of ${MAX_HOURS_PER_DAY} hours used today.`}
+                  </Text>
                 </View>
               )}
             </View>
@@ -262,14 +319,40 @@ export default function LibraryRoomsScreen() {
         })}
       </ScrollView>
 
+      {confirmation && (
+        <View style={styles.banner} accessibilityLiveRegion="polite">
+          <Ionicons name="checkmark-circle" size={24} color={ACCENT} />
+          <View style={styles.bannerText}>
+            <Text style={styles.bannerTitle}>Room booked</Text>
+            <Text style={styles.bannerBody}>{confirmation}</Text>
+          </View>
+          <Pressable
+            onPress={() => setConfirmation(null)}
+            accessibilityRole="button"
+            accessibilityLabel="Dismiss"
+            hitSlop={8}
+            style={({ pressed }) => [styles.bannerClose, pressed && styles.pressed]}
+          >
+            <Ionicons name="close" size={20} color={MUTED} />
+          </Pressable>
+        </View>
+      )}
+
       <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, SPACE.md) }]}>
-        <TouchableOpacity
-          activeOpacity={0.85}
-          style={[styles.bookButton, !ready && styles.bookButtonIdle]}
+        <Pressable
+          disabled={!ready || booking}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !ready || booking, busy: booking }}
+          style={({ pressed }) => [
+            styles.bookButton,
+            !ready && styles.bookButtonIdle,
+            pressed && ready && !booking && styles.bookPressed,
+          ]}
           onPress={bookRoom}
         >
+          {booking && <ActivityIndicator color="#fff" />}
           <Text style={[styles.bookText, !ready && styles.bookTextIdle]}>{bookLabel}</Text>
-        </TouchableOpacity>
+        </Pressable>
       </View>
     </View>
   );
@@ -279,6 +362,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: BG,
+  },
+  pressed: {
+    opacity: 0.7,
+    transform: [{ scale: 0.98 }],
   },
   content: {
     paddingHorizontal: SPACE.lg,
@@ -363,10 +450,16 @@ const styles = StyleSheet.create({
     padding: SPACE.lg,
     alignItems: 'center',
   },
+  emptyTitle: {
+    ...TYPE.heading,
+    color: INK,
+    marginTop: SPACE.md,
+  },
   emptyText: {
-    ...TYPE.body,
-    fontWeight: '400',
+    ...TYPE.caption,
     color: MUTED,
+    textAlign: 'center',
+    marginTop: SPACE.xs,
   },
   card: {
     backgroundColor: SURFACE,
@@ -390,6 +483,9 @@ const styles = StyleSheet.create({
   roomName: {
     ...TYPE.heading,
     color: INK,
+  },
+  roomNameFull: {
+    color: FAINT,
   },
   roomMeta: {
     ...TYPE.caption,
@@ -478,6 +574,8 @@ const styles = StyleSheet.create({
   },
   slotTextTaken: {
     color: FAINT,
+  },
+  slotTextStruck: {
     textDecorationLine: 'line-through',
   },
   slotTextSelected: {
@@ -489,6 +587,41 @@ const styles = StyleSheet.create({
     color: MUTED,
     marginTop: SPACE.lg,
   },
+  noteLimit: {
+    color: INK,
+    fontWeight: '600',
+  },
+
+  // Confirmation banner
+  banner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACE.md,
+    marginHorizontal: SPACE.lg,
+    marginBottom: SPACE.md,
+    padding: SPACE.md,
+    borderRadius: RADIUS.lg,
+    backgroundColor: ACCENT_SOFT,
+  },
+  bannerText: {
+    flex: 1,
+  },
+  bannerTitle: {
+    ...TYPE.body,
+    fontWeight: '600',
+    color: INK,
+  },
+  bannerBody: {
+    ...TYPE.caption,
+    color: MUTED,
+    marginTop: SPACE.xs,
+  },
+  bannerClose: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 
   // Bottom bar
   bottomBar: {
@@ -499,12 +632,18 @@ const styles = StyleSheet.create({
     borderTopColor: LINE,
   },
   bookButton: {
+    flexDirection: 'row',
+    gap: SPACE.sm,
     minHeight: 56,
     borderRadius: RADIUS.lg,
     backgroundColor: ACCENT,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: SPACE.md,
+  },
+  bookPressed: {
+    opacity: 0.85,
+    transform: [{ scale: 0.98 }],
   },
   bookButtonIdle: {
     backgroundColor: IDLE,
