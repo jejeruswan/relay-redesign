@@ -13,7 +13,6 @@ type ClassItem = {
   code: string;
   title: string;
   units: number;
-  color: string;
   section: Section;
   altSection: Section;
 };
@@ -22,6 +21,20 @@ type WaitlistItem = ClassItem & {
   position: number;
   size: number;
 };
+
+// Palette: one ink, one muted gray, one accent, plus status colors only where they mean something.
+const COLORS = {
+  bg: '#f5f6f8',
+  surface: '#ffffff',
+  ink: '#1f2a44', // primary text (~14:1 on white)
+  muted: '#5b6478', // secondary text (~6:1 on white)
+  hairline: '#e4e7ec',
+  accent: '#2d6cdf', // actions and progress (~4.9:1 on white)
+  accentSoft: '#eaf1fd',
+  warn: '#8a5a00', // waitlist text (~6:1 on warnSoft)
+  warnSoft: '#fdf3e1',
+  danger: '#b3261e', // destructive actions (~6.5:1 on white)
+} as const;
 
 const TERM = 'Spring 2027';
 const APPOINTMENT = 'Phase 2 begins Mon Nov 30, 9:00 AM';
@@ -33,7 +46,6 @@ const ENROLLED: ClassItem[] = [
     code: 'CS 61B',
     title: 'Data Structures',
     units: 4,
-    color: '#e67e22',
     section: { label: 'LEC 001', days: 'MWF', time: '1:00 – 1:59 PM', room: 'Wheeler 150' },
     altSection: { label: 'LEC 002', days: 'MWF', time: '4:00 – 4:59 PM', room: 'Wheeler 150' },
   },
@@ -42,7 +54,6 @@ const ENROLLED: ClassItem[] = [
     code: 'MATH 54',
     title: 'Linear Algebra & Differential Equations',
     units: 4,
-    color: '#9b59b6',
     section: { label: 'LEC 001', days: 'TuTh', time: '9:30 – 10:59 AM', room: 'Dwinelle 155' },
     altSection: { label: 'LEC 002', days: 'TuTh', time: '12:30 – 1:59 PM', room: 'Dwinelle 155' },
   },
@@ -51,7 +62,6 @@ const ENROLLED: ClassItem[] = [
     code: 'DATA 8',
     title: 'Foundations of Data Science',
     units: 4,
-    color: '#16a085',
     section: { label: 'LEC 001', days: 'MWF', time: '10:00 – 10:59 AM', room: 'Wheeler 150' },
     altSection: { label: 'LAB 014', days: 'W', time: '2:00 – 3:59 PM', room: 'Dwinelle 155' },
   },
@@ -63,7 +73,6 @@ const WAITLIST: WaitlistItem[] = [
     code: 'EECS 16B',
     title: 'Designing Information Devices and Systems II',
     units: 4,
-    color: '#e84393',
     position: 23,
     size: 41,
     section: { label: 'LEC 001', days: 'TuTh', time: '2:00 – 3:29 PM', room: 'Pimentel 1' },
@@ -124,7 +133,6 @@ export default function StudentPortalScreen() {
 
   const renderClass = (item: ClassItem, waitlisted: boolean) => (
     <View key={item.id} style={styles.classCard}>
-      <View style={[styles.colorBar, { backgroundColor: item.color }]} />
       <View style={styles.classBody}>
         <View style={styles.classHeader}>
           <Text style={styles.classCode}>{item.code}</Text>
@@ -199,7 +207,7 @@ export default function StudentPortalScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f4f5f8',
+    backgroundColor: COLORS.bg,
   },
   content: {
     padding: 20,
@@ -208,18 +216,18 @@ const styles = StyleSheet.create({
   term: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#2d6cdf',
+    color: COLORS.muted,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
   appName: {
     fontSize: 30,
     fontWeight: '800',
-    color: '#1f2a44',
+    color: COLORS.ink,
     marginBottom: 16,
   },
   hero: {
-    backgroundColor: '#1f2a44',
+    backgroundColor: COLORS.surface,
     borderRadius: 16,
     padding: 18,
     marginBottom: 24,
@@ -228,12 +236,12 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 1,
-    color: '#8fb4ff',
+    color: COLORS.accent,
   },
   heroTitle: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#fff',
+    color: COLORS.ink,
     marginTop: 4,
   },
   unitsRow: {
@@ -242,52 +250,41 @@ const styles = StyleSheet.create({
   heroUnits: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#fff',
+    color: COLORS.ink,
   },
   heroUnitsMax: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#aab4cc',
+    color: COLORS.muted,
   },
   track: {
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#3a4666',
+    backgroundColor: COLORS.accentSoft,
     marginTop: 8,
     overflow: 'hidden',
   },
   fill: {
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#8fb4ff',
+    backgroundColor: COLORS.accent,
   },
   sectionHeader: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#6b7488',
+    color: COLORS.muted,
     textTransform: 'uppercase',
     letterSpacing: 0.6,
     marginBottom: 10,
     marginTop: 4,
   },
   classCard: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.surface,
     borderRadius: 12,
     marginBottom: 12,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-  },
-  colorBar: {
-    width: 5,
   },
   classBody: {
-    flex: 1,
-    padding: 14,
+    padding: 16,
   },
   classHeader: {
     flexDirection: 'row',
@@ -297,32 +294,32 @@ const styles = StyleSheet.create({
   classCode: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#1f2a44',
+    color: COLORS.ink,
   },
   unitsText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#6b7488',
+    color: COLORS.muted,
   },
   classTitle: {
     fontSize: 14,
-    color: '#555d70',
+    color: COLORS.muted,
     marginTop: 2,
     marginBottom: 10,
   },
   sectionText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1f2a44',
+    color: COLORS.ink,
   },
   roomText: {
     fontSize: 13,
-    color: '#6b7488',
+    color: COLORS.muted,
     marginTop: 2,
   },
   waitPill: {
     alignSelf: 'flex-start',
-    backgroundColor: '#fff4e0',
+    backgroundColor: COLORS.warnSoft,
     borderRadius: 10,
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -331,24 +328,27 @@ const styles = StyleSheet.create({
   waitText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#b36b00',
+    color: COLORS.warn,
   },
   actions: {
     flexDirection: 'row',
     marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: COLORS.hairline,
   },
   swapButton: {
     minHeight: 44,
     paddingHorizontal: 16,
     borderRadius: 10,
-    backgroundColor: '#eaf1ff',
+    backgroundColor: COLORS.accentSoft,
     justifyContent: 'center',
     marginRight: 10,
   },
   swapText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#2d6cdf',
+    color: COLORS.accent,
   },
   dropButton: {
     minHeight: 44,
@@ -358,6 +358,7 @@ const styles = StyleSheet.create({
   },
   dropText: {
     fontSize: 14,
-    color: '#c0392b',
+    fontWeight: '600',
+    color: COLORS.danger,
   },
 });
