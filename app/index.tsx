@@ -15,6 +15,9 @@ const SCREENS = [
   { title: 'Health Appointment', subtitle: 'Book a visit at the health center' },
   { title: 'Print Queue', subtitle: 'Release your print jobs' },
   { title: 'Scooter Unlock', subtitle: 'Nearby scooters and e-bikes' },
+  { title: 'Club Event RSVP', subtitle: 'Going, maybe, or can’t go' },
+  { title: 'Night Safety Walk', subtitle: 'Request a walk home' },
+  { title: 'Rent Payment', subtitle: 'Pay this month’s rent' },
 ];
 
 export default function Home() {

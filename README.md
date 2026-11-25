@@ -1,6 +1,6 @@
 # Relay Redesign 🏃‍♀️📱
 
-12 everyday Berkeley apps, each a little clunky. In 4 quick rounds you'll pass screens around the room and make them better with Claude Code.
+15 everyday Berkeley apps, each a little clunky. In 4 quick rounds you'll pass screens around the room and make them better with Claude Code.
 
 ## Setup (before class)
 
