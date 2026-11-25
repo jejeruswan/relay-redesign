@@ -45,14 +45,31 @@ const ROOMS: Room[] = [
 const HOURS: number[] = [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
 
 // One accent color; everything else is neutral.
+// Neutrals are tinted slightly toward the accent's blue so everything feels related.
 const ACCENT = '#3B4FD8';
-const ACCENT_SOFT = '#EDEFFC';
-const INK = '#14161A';
-const MUTED = '#6B7079';
-const FAINT = '#A3A8B0';
-const LINE = '#E3E5E9';
+const ACCENT_SOFT = '#E9ECFC';
+const INK = '#161A33';
+const MUTED = '#636A85';
+const FAINT = '#9FA5BD';
+const LINE = '#E1E4F0';
 const SURFACE = '#FFFFFF';
-const BG = '#F5F6F8';
+const BG = '#F4F5FB';
+const IDLE = '#E4E7F4';
+
+// Spacing scale: 4 / 8 / 16 / 24 / 32 / 48. Every margin, padding and gap uses these.
+const SPACE = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32, xxl: 48 } as const;
+
+// Corner radius scale.
+const RADIUS = { sm: 8, md: 12, lg: 16, pill: 999 } as const;
+
+// Text styles: five roles used everywhere.
+const TYPE = {
+  display: { fontSize: 32, lineHeight: 38, fontWeight: '700', letterSpacing: -0.6 },
+  heading: { fontSize: 18, lineHeight: 24, fontWeight: '600' },
+  body: { fontSize: 15, lineHeight: 20, fontWeight: '500' },
+  caption: { fontSize: 13, lineHeight: 18, fontWeight: '400' },
+  label: { fontSize: 12, lineHeight: 16, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase' },
+} as const;
 
 function formatHour(hour: number) {
   const suffix = hour >= 12 ? 'pm' : 'am';
@@ -174,7 +191,7 @@ export default function LibraryRoomsScreen() {
             <View key={r.id} style={[styles.card, active && styles.cardActive]}>
               <TouchableOpacity activeOpacity={0.6} onPress={() => selectRoom(r.id)}>
                 <View style={styles.cardTop}>
-                  <View style={{ flex: 1 }}>
+                  <View style={styles.cardInfo}>
                     <Text style={styles.roomName}>{r.name}</Text>
                     <Text style={styles.roomMeta}>
                       {r.floor} · Up to {r.capacity} people
@@ -245,7 +262,7 @@ export default function LibraryRoomsScreen() {
         })}
       </ScrollView>
 
-      <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+      <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, SPACE.md) }]}>
         <TouchableOpacity
           activeOpacity={0.85}
           style={[styles.bookButton, !ready && styles.bookButtonIdle]}
@@ -264,47 +281,48 @@ const styles = StyleSheet.create({
     backgroundColor: BG,
   },
   content: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 24,
+    paddingHorizontal: SPACE.lg,
+    paddingTop: SPACE.xl,
+    paddingBottom: SPACE.xl,
   },
+
+  // Header
   date: {
-    fontSize: 13,
+    ...TYPE.caption,
     fontWeight: '500',
     color: MUTED,
   },
   title: {
-    fontSize: 30,
-    fontWeight: '700',
+    ...TYPE.display,
     color: INK,
-    marginTop: 2,
-    letterSpacing: -0.5,
+    marginTop: SPACE.sm,
   },
+
+  // Library chips
   chipWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 18,
+    gap: SPACE.sm,
+    marginTop: SPACE.xl,
   },
   chip: {
     minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
     justifyContent: 'center',
-    paddingHorizontal: 16,
-    borderRadius: 22,
+    gap: SPACE.sm,
+    paddingHorizontal: SPACE.md,
+    borderRadius: RADIUS.pill,
     backgroundColor: SURFACE,
     borderWidth: 1,
     borderColor: LINE,
   },
   chipActive: {
-    backgroundColor: INK,
-    borderColor: INK,
+    backgroundColor: ACCENT,
+    borderColor: ACCENT,
   },
   chipText: {
-    fontSize: 15,
-    fontWeight: '500',
+    ...TYPE.body,
     color: INK,
   },
   chipTextActive: {
@@ -314,7 +332,7 @@ const styles = StyleSheet.create({
     color: FAINT,
   },
   chipCount: {
-    fontSize: 13,
+    ...TYPE.caption,
     fontWeight: '500',
     color: MUTED,
   },
@@ -324,37 +342,37 @@ const styles = StyleSheet.create({
   hoursRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginTop: 12,
+    gap: SPACE.sm,
+    marginTop: SPACE.lg,
   },
   hours: {
-    fontSize: 13,
+    ...TYPE.caption,
     color: MUTED,
   },
+
+  // Room list
   sectionLabel: {
-    fontSize: 13,
-    fontWeight: '600',
+    ...TYPE.label,
     color: MUTED,
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    marginTop: 28,
-    marginBottom: 10,
+    marginTop: SPACE.xxl,
+    marginBottom: SPACE.md,
   },
   empty: {
     backgroundColor: SURFACE,
-    borderRadius: 14,
-    padding: 20,
+    borderRadius: RADIUS.lg,
+    padding: SPACE.lg,
     alignItems: 'center',
   },
   emptyText: {
-    fontSize: 15,
+    ...TYPE.body,
+    fontWeight: '400',
     color: MUTED,
   },
   card: {
     backgroundColor: SURFACE,
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 10,
+    borderRadius: RADIUS.lg,
+    padding: SPACE.lg,
+    marginBottom: SPACE.md,
     borderWidth: 1.5,
     borderColor: 'transparent',
   },
@@ -364,29 +382,31 @@ const styles = StyleSheet.create({
   cardTop: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 12,
+    gap: SPACE.md,
+  },
+  cardInfo: {
+    flex: 1,
   },
   roomName: {
-    fontSize: 18,
-    fontWeight: '600',
+    ...TYPE.heading,
     color: INK,
   },
   roomMeta: {
-    fontSize: 14,
+    ...TYPE.caption,
     color: MUTED,
-    marginTop: 3,
+    marginTop: SPACE.sm,
   },
   openPill: {
     backgroundColor: ACCENT_SOFT,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: SPACE.sm + SPACE.xs,
+    paddingVertical: SPACE.xs,
   },
   openPillFull: {
     backgroundColor: BG,
   },
   openPillText: {
-    fontSize: 13,
+    ...TYPE.caption,
     fontWeight: '600',
     color: ACCENT,
   },
@@ -396,46 +416,48 @@ const styles = StyleSheet.create({
   amenities: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 12,
+    gap: SPACE.sm,
+    marginTop: SPACE.md,
   },
   amenity: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: SPACE.xs,
     backgroundColor: BG,
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    borderRadius: RADIUS.sm,
+    paddingHorizontal: SPACE.sm,
+    paddingVertical: SPACE.xs,
   },
   amenityText: {
-    fontSize: 13,
+    ...TYPE.caption,
     color: MUTED,
   },
+
+  // Time slots
   slotSection: {
-    marginTop: 4,
+    marginTop: SPACE.xs,
   },
   divider: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: LINE,
-    marginVertical: 14,
+    marginVertical: SPACE.lg,
   },
   slotHeading: {
-    fontSize: 15,
+    ...TYPE.body,
     fontWeight: '600',
     color: INK,
-    marginBottom: 10,
+    marginBottom: SPACE.md,
   },
   slotGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    rowGap: 8,
+    rowGap: SPACE.md,
   },
   slot: {
     width: '23%',
     minHeight: 44,
-    borderRadius: 10,
+    borderRadius: RADIUS.md,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: SURFACE,
@@ -451,8 +473,7 @@ const styles = StyleSheet.create({
     borderColor: ACCENT,
   },
   slotText: {
-    fontSize: 15,
-    fontWeight: '500',
+    ...TYPE.body,
     color: INK,
   },
   slotTextTaken: {
@@ -464,31 +485,32 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   note: {
-    fontSize: 12,
+    ...TYPE.caption,
     color: MUTED,
-    marginTop: 12,
+    marginTop: SPACE.lg,
   },
+
+  // Bottom bar
   bottomBar: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
+    paddingHorizontal: SPACE.lg,
+    paddingTop: SPACE.md,
     backgroundColor: SURFACE,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: LINE,
   },
   bookButton: {
-    minHeight: 52,
-    borderRadius: 14,
+    minHeight: 56,
+    borderRadius: RADIUS.lg,
     backgroundColor: ACCENT,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: SPACE.md,
   },
   bookButtonIdle: {
-    backgroundColor: '#E8EAEE',
+    backgroundColor: IDLE,
   },
   bookText: {
-    fontSize: 17,
-    fontWeight: '600',
+    ...TYPE.heading,
     color: '#fff',
   },
   bookTextIdle: {
