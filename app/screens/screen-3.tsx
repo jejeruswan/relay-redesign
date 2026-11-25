@@ -28,6 +28,9 @@ const ASSIGNMENTS: Assignment[] = [
   { id: 'a9', title: 'Project 4: Scheme Interpreter (Phase 1)', course: 'CS 61A', kind: 'project', due: 'Fri Nov 27, 11:59 PM', points: 25, status: 'notyet' },
 ];
 
+// Spacing scale: use only these values for margins, padding and gaps.
+const SPACE = { xs: 4, sm: 8, md: 16, lg: 24 } as const;
+
 const FILTERS: Filter[] = ['All', 'Missing', 'Submitted', 'Quizzes'];
 
 const STATUS_LABEL: Record<Status, string> = {
@@ -90,7 +93,7 @@ export default function CourseSiteScreen() {
             <Text style={styles.title}>{a.title}</Text>
             <Text style={styles.due}>Due {a.due}</Text>
             <View style={styles.statusRow}>
-              <Ionicons name={STATUS_ICON[a.status]} size={20} color="#7a7a7a" style={{ marginTop: -5 }} />
+              <Ionicons name={STATUS_ICON[a.status]} size={16} color="#7a7a7a" />
               <Text style={styles.statusText}>{STATUS_LABEL[a.status]}</Text>
             </View>
           </View>
@@ -106,33 +109,34 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fbfaf7',
-    paddingHorizontal: 6,
+    paddingHorizontal: SPACE.md,
   },
   appName: {
     fontSize: 21,
     fontWeight: '800',
     color: '#8e24aa',
-    marginTop: 7,
+    marginTop: SPACE.lg,
   },
   week: {
     fontSize: 15,
     fontWeight: '500',
     color: '#16a085',
+    marginTop: SPACE.xs,
   },
   summary: {
     fontSize: 12,
     color: '#666',
-    marginTop: 1,
+    marginTop: SPACE.xs,
   },
   tabs: {
     flexDirection: 'row',
-    marginTop: 4,
+    marginTop: SPACE.md,
     borderBottomWidth: 1,
     borderBottomColor: '#ddd',
   },
   tab: {
-    paddingHorizontal: 13,
-    paddingVertical: 13,
+    paddingHorizontal: SPACE.sm,
+    paddingVertical: SPACE.md,
   },
   tabActive: {
     borderBottomWidth: 2,
@@ -147,7 +151,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   row: {
-    padding: 4,
+    paddingVertical: SPACE.md,
     borderBottomWidth: 1,
     borderBottomColor: '#e6e4de',
   },
@@ -169,27 +173,28 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '400',
     color: '#333',
-    marginTop: 2,
+    marginTop: SPACE.xs,
   },
   due: {
     fontSize: 13,
     color: '#bdbdbd',
+    marginTop: SPACE.xs,
   },
   statusRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginTop: 3,
+    alignItems: 'center',
+    marginTop: SPACE.sm,
   },
   statusText: {
     fontSize: 12,
     color: '#7a7a7a',
-    marginLeft: 5,
+    marginLeft: SPACE.xs,
   },
   footer: {
     fontSize: 10,
     color: '#999',
     textAlign: 'center',
-    marginTop: 8,
-    marginBottom: 20,
+    marginTop: SPACE.lg,
+    marginBottom: SPACE.lg,
   },
 });
